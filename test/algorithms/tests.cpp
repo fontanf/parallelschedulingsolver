@@ -4,6 +4,7 @@
 
 #include <boost/filesystem.hpp>
 
+#include <cctype>
 #include <fstream>
 #include <sstream>
 

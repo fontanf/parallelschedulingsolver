@@ -6,8 +6,10 @@ std::istream& parallelschedulingsolver::operator>>(
         std::istream& in,
         Objective& objective)
 {
+    // Read the whole value since some objective names contain spaces, e.g.
+    // "Total flow time".
     std::string token;
-    in >> token;
+    std::getline(in >> std::ws, token);
     if (token == "makespan" || token == "Makespan") {
         objective = Objective::Makespan;
     } else if (token == "total-flow-time"

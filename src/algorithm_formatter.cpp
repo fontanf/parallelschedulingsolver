@@ -165,20 +165,77 @@ void AlgorithmFormatter::update_solution(
     }
 }
 
-void AlgorithmFormatter::update_makespan_bound(
-        Time bound,
+void AlgorithmFormatter::update_bound(
+        Time& bound_cur,
+        Time bound_new,
+        optimizationtools::ObjectiveDirection objective_direction,
         const std::string& s)
 {
     if (optimizationtools::is_bound_strictly_better(
-            objective_direction(this->output_.solution.instance().objective()),
-            output_.makespan_bound,
-            bound)) {
+            objective_direction,
+            bound_cur,
+            bound_new)) {
         output_.time = parameters_.timer.elapsed_time();
-        output_.makespan_bound = bound;
+        bound_cur = bound_new;
         print(s);
         output_.json["IntermediaryOutputs"].push_back(output_.to_json());
         parameters_.new_solution_callback(output_);
     }
+}
+
+void AlgorithmFormatter::update_makespan_bound(
+        Time bound,
+        const std::string& s)
+{
+    update_bound(
+            output_.makespan_bound,
+            bound,
+            optimizationtools::ObjectiveDirection::Minimize,
+            s);
+}
+
+void AlgorithmFormatter::update_total_flow_time_bound(
+        Time bound,
+        const std::string& s)
+{
+    update_bound(
+            output_.total_flow_time_bound,
+            bound,
+            optimizationtools::ObjectiveDirection::Minimize,
+            s);
+}
+
+void AlgorithmFormatter::update_total_tardiness_bound(
+        Time bound,
+        const std::string& s)
+{
+    update_bound(
+            output_.total_tardiness_bound,
+            bound,
+            optimizationtools::ObjectiveDirection::Minimize,
+            s);
+}
+
+void AlgorithmFormatter::update_maximum_lateness_bound(
+        Time bound,
+        const std::string& s)
+{
+    update_bound(
+            output_.maximum_lateness_bound,
+            bound,
+            optimizationtools::ObjectiveDirection::Minimize,
+            s);
+}
+
+void AlgorithmFormatter::update_throughput_bound(
+        Time bound,
+        const std::string& s)
+{
+    update_bound(
+            output_.throughput_bound,
+            bound,
+            optimizationtools::ObjectiveDirection::Maximize,
+            s);
 }
 
 void AlgorithmFormatter::end()

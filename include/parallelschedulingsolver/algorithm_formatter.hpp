@@ -9,22 +9,40 @@ struct Output: optimizationtools::Output
 {
     /** Constructor. */
     Output(const Instance& instance):
-        solution(SolutionBuilder().set_instance(instance).build()) { }
+        solution(SolutionBuilder().set_instance(instance).build())
+    {
+        // Trivial upper bound on the throughput: all jobs with a due date are
+        // on time.
+        throughput_bound = 0;
+        for (JobId job_id = 0; job_id < instance.number_of_jobs(); ++job_id)
+            if (instance.job(job_id).due_date >= 0)
+                throughput_bound += instance.job(job_id).weight;
+    }
 
 
     Time time;
 
     Solution solution;
 
-    Time makespan_bound = -1;
+    /*
+     * Bounds, initialized to trivial valid bounds. When the bound of the
+     * objective equals the value of the solution, the solution is optimal.
+     */
 
-    Time total_flow_time_bound = -1;
+    /** Lower bound on the makespan. */
+    Time makespan_bound = 0;
 
-    Time total_tardiness_bound = -1;
+    /** Lower bound on the total (weighted) flow time. */
+    Time total_flow_time_bound = 0;
 
-    Time maximum_lateness_bound = -1;
+    /** Lower bound on the total (weighted) tardiness. */
+    Time total_tardiness_bound = 0;
 
-    Time throughput_bound = -1;
+    /** Lower bound on the maximum lateness. */
+    Time maximum_lateness_bound = std::numeric_limits<Time>::min();
+
+    /** Upper bound on the (weighted) throughput. */
+    Time throughput_bound = 0;
 
 
     double bound() const
@@ -130,10 +148,22 @@ public:
             Time bound,
             const std::string& s);
 
+    /** Update throughput bound. */
+    void update_throughput_bound(
+            Time bound,
+            const std::string& s);
+
     /** Method to call at the end of the algorithm. */
     void end();
 
 private:
+
+    /** Update a bound if the new one is strictly better. */
+    void update_bound(
+            Time& bound_cur,
+            Time bound_new,
+            optimizationtools::ObjectiveDirection objective_direction,
+            const std::string& s);
 
     /** Instance. */
     const Instance& instance_;

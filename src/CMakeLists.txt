@@ -22,6 +22,10 @@ if(PARALLELSCHEDULINGSOLVER_BUILD_MAIN)
     target_link_libraries(ParallelSchedulingSolver_main PUBLIC
         ParallelSchedulingSolver_parallelschedulingsolver
         ParallelSchedulingSolver_greedy_longest_processing_time
+        ParallelSchedulingSolver_greedy_shortest_processing_time
+        ParallelSchedulingSolver_greedy_earliest_due_date
+        ParallelSchedulingSolver_moore_hodgson
+        ParallelSchedulingSolver_assignment_total_flow_time
         Boost::program_options
         Boost::filesystem)
     set_target_properties(ParallelSchedulingSolver_main PROPERTIES OUTPUT_NAME "parallelschedulingsolver")

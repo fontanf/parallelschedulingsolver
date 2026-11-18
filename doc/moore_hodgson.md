@@ -14,7 +14,7 @@ Maximizes the number of on-time jobs, i.e. minimizes the number of tardy jobs $\
 
 The throughput objective of this repository is the total weight of the on-time jobs, so maximizing it is equivalent to minimizing $\sum w_j U_j$.
 
-Complexity: $O(n^2)$ as implemented. The completion time is recomputed after each removal, so that release dates are handled. $O(n \log n)$ is possible with a priority queue when there are no release dates.
+Complexity: $O(n \log n)$. The on-time jobs are kept in a binary heap ordered by $p_j / w_j$, so each removal costs $O(\log n)$, and the completion time of the on-time jobs decreases by the processing time of the removed job. With release dates, this is no longer true, so the completion time is recomputed after each removal, and the complexity is $O(n^2)$.
 
 ## Supported problems
 
@@ -29,10 +29,13 @@ Single machine instances only: the algorithm throws `std::invalid_argument` on m
 
 ## Limits
 
-| Problem | Result |
-| --- | --- |
-| $1 \mid\mid \sum w_j U_j$ | Not optimal: the $p_j / w_j$ removal rule is a heuristic. The problem is NP-hard (Karp, 1972) and can be solved in $O(n \sum p_j)$ time by dynamic programming (Lawler and Moore, 1969). |
-| $1 \mid r_j \mid \sum U_j$ | Not optimal; strongly NP-hard (Lenstra, Rinnooy Kan and Brucker, 1977). |
+$1 \mid\mid \sum w_j U_j$
+* Not optimal: the $p_j / w_j$ removal rule is a heuristic.
+* The problem is NP-hard (Karp, 1972). It can be solved in $O(n \sum p_j)$ time by dynamic programming (Lawler and Moore, 1969).
+
+$1 \mid r_j \mid \sum U_j$
+* Not optimal.
+* The problem is strongly NP-hard (Lenstra, Rinnooy Kan and Brucker, 1977).
 
 ## Proved optimality
 
@@ -45,7 +48,7 @@ When the instance has no release dates and equal weights, the algorithm sets the
 
 ## References
 
-* J. M. Moore (1968). An n job, one machine sequencing algorithm for minimizing the number of late jobs. *Management Science*, 15(1), 102–109.
-* E. L. Lawler and J. M. Moore (1969). A functional equation and its application to resource allocation and sequencing problems. *Management Science*, 16(1), 77–84.
-* R. M. Karp (1972). Reducibility among combinatorial problems. In *Complexity of Computer Computations*, 85–103.
-* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362.
+* J. M. Moore (1968). An n job, one machine sequencing algorithm for minimizing the number of late jobs. *Management Science*, 15(1), 102–109. [doi:10.1287/mnsc.15.1.102](https://doi.org/10.1287/mnsc.15.1.102)
+* E. L. Lawler and J. M. Moore (1969). A functional equation and its application to resource allocation and sequencing problems. *Management Science*, 16(1), 77–84. [doi:10.1287/mnsc.16.1.77](https://doi.org/10.1287/mnsc.16.1.77)
+* R. M. Karp (1972). Reducibility among combinatorial problems. In *Complexity of Computer Computations*, 85–103. [doi:10.1007/978-1-4684-2001-2_9](https://doi.org/10.1007/978-1-4684-2001-2_9)
+* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362. [doi:10.1016/S0167-5060(08)70743-X](https://doi.org/10.1016/S0167-5060(08)70743-X)

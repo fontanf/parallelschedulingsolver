@@ -2,10 +2,50 @@
 
 #include "parallelschedulingsolver/algorithms/special_cases.hpp"
 
+#include "optimizationtools/containers/indexed_binary_heap.hpp"
+
 #include <algorithm>
 #include <numeric>
 
 using namespace parallelschedulingsolver;
+
+namespace
+{
+
+/**
+ * Key of an on-time job in the heap of the jobs to remove.
+ *
+ * The heap is a min-heap, so a key is smaller when the job should be removed
+ * first: larger processing time / weight ratio first, then the job added
+ * first, i.e. the one with the smallest due date.
+ */
+struct RemovalKey
+{
+    Time processing_time = 0;
+
+    Time weight = 1;
+
+    /** Position of the job in the EDD order. */
+    JobId rank = 0;
+
+    bool operator<(const RemovalKey& key) const
+    {
+        // p / w > p' / w', without divisions.
+        Time lhs = processing_time * key.weight;
+        Time rhs = key.processing_time * weight;
+        if (lhs != rhs)
+            return lhs > rhs;
+        return rank < key.rank;
+    }
+
+    bool operator>(const RemovalKey& key) const { return key < *this; }
+
+    bool operator<=(const RemovalKey& key) const { return !(key < *this); }
+
+    bool operator>=(const RemovalKey& key) const { return !(*this < key); }
+};
+
+}
 
 Output parallelschedulingsolver::moore_hodgson(
     const Instance& instance,
@@ -43,24 +83,17 @@ Output parallelschedulingsolver::moore_hodgson(
                     < instance.job(job_2_id).due_date;
             });
 
-    // Completion time of the sequence of on-time jobs.
-    auto completion_time = [&instance, machine_id](
-            const std::vector<JobId>& sequence)
-    {
-        Time current_time = 0;
-        for (JobId job_id: sequence) {
-            const Job& job = instance.job(job_id);
-            current_time = (std::max)(current_time, job.release_date)
-                + job.processing_times[machine_id];
-        }
-        return current_time;
-    };
-
-    std::vector<JobId> on_time_job_ids;
+    // Heap of the on-time jobs; the top is the next job to remove.
+    optimizationtools::IndexedBinaryHeap<RemovalKey> on_time_jobs(instance.number_of_jobs());
+    bool has_release_dates = !no_release_dates(instance);
     Time current_time = 0;
-    for (JobId job_id: job_ids) {
+    for (JobId job_pos = 0; job_pos < (JobId)job_ids.size(); ++job_pos) {
+        JobId job_id = job_ids[job_pos];
         const Job& job = instance.job(job_id);
-        on_time_job_ids.push_back(job_id);
+        on_time_jobs.update_key(job_id, {
+                job.processing_times[machine_id],
+                job.weight,
+                job_pos});
         current_time = (std::max)(current_time, job.release_date)
             + job.processing_times[machine_id];
         if (current_time <= job.due_date)
@@ -68,21 +101,31 @@ Output parallelschedulingsolver::moore_hodgson(
 
         // Remove the on-time job with the largest processing time / weight
         // ratio.
-        auto it_max = std::max_element(
-                on_time_job_ids.begin(),
-                on_time_job_ids.end(),
-                [&instance, machine_id](JobId job_1_id, JobId job_2_id)
-                {
-                    // p_1 / w_1 < p_2 / w_2, without divisions.
-                    const Job& job_1 = instance.job(job_1_id);
-                    const Job& job_2 = instance.job(job_2_id);
-                    return job_1.processing_times[machine_id] * job_2.weight
-                        < job_2.processing_times[machine_id] * job_1.weight;
-                });
-        late_job_ids.push_back(*it_max);
-        on_time_job_ids.erase(it_max);
-        current_time = completion_time(on_time_job_ids);
+        JobId removed_job_id = on_time_jobs.top().first;
+        on_time_jobs.pop();
+        late_job_ids.push_back(removed_job_id);
+        if (!has_release_dates) {
+            current_time -= instance.job(removed_job_id).processing_times[machine_id];
+        } else {
+            // With release dates, removing a job may not decrease the
+            // completion time by its processing time: recompute it.
+            current_time = 0;
+            for (JobId job_pos_2 = 0; job_pos_2 <= job_pos; ++job_pos_2) {
+                JobId job_id_2 = job_ids[job_pos_2];
+                if (!on_time_jobs.contains(job_id_2))
+                    continue;
+                const Job& job_2 = instance.job(job_id_2);
+                current_time = (std::max)(current_time, job_2.release_date)
+                    + job_2.processing_times[machine_id];
+            }
+        }
     }
+
+    // On-time jobs, in increasing order of due date.
+    std::vector<JobId> on_time_job_ids;
+    for (JobId job_id: job_ids)
+        if (on_time_jobs.contains(job_id))
+            on_time_job_ids.push_back(job_id);
 
     // Build solution.
     SolutionBuilder solution_builder;

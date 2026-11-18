@@ -2,20 +2,10 @@
     "archives": [
         {
             "name": "tests",
-            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-tests-v1/tests.tar.xz",
-            "sha256": "7b8f7985e61454910c7946ce05cc10ae5601242d91d72b095f7b101daaae818b",
+            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-tests-v2/tests.tar.xz",
+            "sha256": "e65d04ccb32583c64126eea7d929a9ead84a1c3d3978cd2e8f10c015590804d4",
             "directories": [
                 "tests"
-            ]
-        },
-        {
-            "name": "benchmarks",
-            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-benchmarks-v1/benchmarks.tar.xz",
-            "sha256": "8cdbf1a9b8e7e12fa4f09b8d5ac4d48948f7188324e9a088ac5da9e2add435c3",
-            "directories": [
-                "alfieri2021",
-                "chen2011",
-                "queiroga2020"
             ]
         }
     ]

@@ -45,12 +45,10 @@ When the instance has no release dates, the algorithm sets the bound to the valu
 * total tardiness: on a single machine with equal weights, when at most one job is tardy or due dates are agreeable;
 * throughput: on a single machine with equal weights, when at most one job is tardy.
 
-Note: in the generated test instances, the due date of a job is proportional to its processing time on a single machine ($d_j = 3 p_j$), so the single machine total tardiness instances are all agreeable and EDD solves them all optimally.
-
 ## Tests
 
 * `test/algorithms/greedy_earliest_due_date_test.cpp`: exact schedules on small instances (ties on due dates, job without due date, identical machines).
-* Optimal maximum lateness on `data/test_tt_single.txt` and `data/test_twt_single.txt`. These instances have a total tardiness objective; the test compares the maximum lateness of the solution.
+* Optimal maximum lateness on `data/test_tt_single.txt`, `data/test_twt_single.txt`, and on the instances of `data/test_tt_identical_equal_processing_times.txt` and `data/test_twt_identical_equal_processing_times.txt` that are small enough to enumerate. These instances have a total tardiness objective; the test compares the maximum lateness of the solution and checks that the algorithm proves its optimality.
 
 ## References
 

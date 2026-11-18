@@ -44,7 +44,7 @@ When the instance has no release dates and equal weights, the algorithm sets the
 ## Tests
 
 * `test/algorithms/moore_hodgson_test.cpp`: exact schedules on small instances (unweighted with removals and a job without due date, weighted removal rule, all jobs on time), and an exception on parallel machines.
-* Optimal number of on-time jobs on `data/test_throughput_single.txt` and `data/test_tt_single.txt`. The throughput instances are weighted, so the test counts the on-time jobs instead of using the objective value.
+* Optimal number of on-time jobs on `data/test_tt_single.txt`, `data/test_tft_single.txt` and `data/test_makespan_single.txt`. These instances have unit weights, so the algorithm is optimal for the number of on-time jobs; the throughput instances are weighted and are not used.
 
 ## References
 

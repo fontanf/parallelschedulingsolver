@@ -25,6 +25,8 @@ to the output file if the optimal value is found. Two methods:
   * makespan: earliest release date first
   * total-flow-time: weighted shortest processing time first (requires all
     release dates to be 0)
+  * maximum-lateness: earliest due date first (requires all release dates to
+    be 0)
 
 Examples:
 python3 scripts/solve_test_data.py --criterion total-flow-time --instances data/test_tft_single.txt data/test_tft_parallel.txt --output test/algorithms/assignment_total_flow_time_test.txt
@@ -111,6 +113,15 @@ def solve_parallel_machines(jobs, number_of_machines, criterion, maximum_size):
         def sort_key(job_id, machine_id):
             return (jobs[job_id]["processing_times"][machine_id]
                     / jobs[job_id]["weight"])
+    elif criterion == "maximum-lateness":
+        if any(job["release_date"] != 0 for job in jobs):
+            raise ValueError(
+                    "maximum-lateness on parallel machines requires "
+                    "release dates equal to 0.")
+
+        def sort_key(job_id, machine_id):
+            due_date = jobs[job_id].get("due_date", -1)
+            return due_date if due_date >= 0 else math.inf
     else:
         raise ValueError(
                 f"criterion '{criterion}' is not supported "
@@ -132,6 +143,9 @@ def solve_parallel_machines(jobs, number_of_machines, criterion, maximum_size):
                     sequence_values(jobs, sequence, machine_id)[criterion])
         if criterion == "makespan":
             value = max(machine_values)
+        elif criterion == "maximum-lateness":
+            machine_values = [v for v in machine_values if v is not None]
+            value = max(machine_values) if machine_values else None
         else:
             value = sum(machine_values)
         if better(criterion, value, best):

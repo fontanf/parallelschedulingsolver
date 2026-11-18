@@ -41,7 +41,7 @@ When the instance has no release dates, the algorithm sets the bound to the valu
 ## Tests
 
 * `test/algorithms/greedy_shortest_processing_time_test.cpp`: exact schedules on small instances (single machine with weights and ties, identical machines, release dates).
-* Optimal value on `data/test_tft_single.txt` and `data/test_twft_single.txt`.
+* Optimal value on `data/test_tft_single.txt`, `data/test_twft_single.txt`, and on the instances of `data/test_tft_identical.txt` and `data/test_tft_identical_equal_processing_times.txt` that are small enough to enumerate; the test also checks that the algorithm proves optimality.
 
 ## References
 

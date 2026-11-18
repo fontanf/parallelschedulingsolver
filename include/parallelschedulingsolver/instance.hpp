@@ -43,6 +43,8 @@ inline optimizationtools::ObjectiveDirection objective_direction(
         return optimizationtools::ObjectiveDirection::Minimize;
     case Objective::TotalTardiness:
         return optimizationtools::ObjectiveDirection::Minimize;
+    case Objective::MaximumLateness:
+        return optimizationtools::ObjectiveDirection::Minimize;
     case Objective::Throughput:
         return optimizationtools::ObjectiveDirection::Maximize;
     }

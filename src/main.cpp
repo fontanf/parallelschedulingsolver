@@ -1,6 +1,10 @@
 #include "parallelschedulingsolver/algorithm_formatter.hpp"
 #include "parallelschedulingsolver/instance_builder.hpp"
 #include "parallelschedulingsolver/algorithms/greedy_longest_processing_time.hpp"
+#include "parallelschedulingsolver/algorithms/greedy_shortest_processing_time.hpp"
+#include "parallelschedulingsolver/algorithms/greedy_earliest_due_date.hpp"
+#include "parallelschedulingsolver/algorithms/moore_hodgson.hpp"
+#include "parallelschedulingsolver/algorithms/assignment_total_flow_time.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -73,6 +77,26 @@ Output run(
         read_args(parameters, vm);
         return greedy_longest_processing_time(instance, parameters);
 
+    } else if (algorithm == "greedy-shortest-processing-time") {
+        Parameters parameters;
+        read_args(parameters, vm);
+        return greedy_shortest_processing_time(instance, parameters);
+
+    } else if (algorithm == "greedy-earliest-due-date") {
+        Parameters parameters;
+        read_args(parameters, vm);
+        return greedy_earliest_due_date(instance, parameters);
+
+    } else if (algorithm == "moore-hodgson") {
+        Parameters parameters;
+        read_args(parameters, vm);
+        return moore_hodgson(instance, parameters);
+
+    } else if (algorithm == "assignment-total-flow-time") {
+        Parameters parameters;
+        read_args(parameters, vm);
+        return assignment_total_flow_time(instance, parameters);
+
     } else {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -122,7 +146,7 @@ int main(int argc, char *argv[])
     InstanceBuilder instance_builder;
     std::string input_format = "";
     if (vm.count("format"))
-        input_format = vm["format"].as<std::string>(),
+        input_format = vm["format"].as<std::string>();
     instance_builder.read(
             vm["input"].as<std::string>(),
             input_format);

@@ -41,7 +41,7 @@ When the instance has no release dates and equal weights, the algorithm sets the
 ## Tests
 
 * `test/algorithms/assignment_total_flow_time_test.cpp`: exact schedules on small instances (single machine, and an unrelated-machine instance where greedy SPT is not optimal).
-* Optimal value on `data/test_tft_single.txt` and on the instances of `data/test_tft_parallel.txt` that are small enough to enumerate.
+* Optimal value on `data/test_tft_single.txt` and on the instances of `data/test_tft_identical.txt`, `data/test_tft_identical_equal_processing_times.txt` and `data/test_tft_unrelated.txt` that are small enough to enumerate; the test also checks that the algorithm proves optimality.
 
 ## References
 

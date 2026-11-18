@@ -51,6 +51,6 @@ When the instance has no release dates and either has a single machine, or ident
 
 ## References
 
-* R. L. Graham (1969). Bounds on multiprocessing timing anomalies. *SIAM Journal on Applied Mathematics*, 17(2), 416–429.
-* E. G. Coffman Jr. and R. Sethi (1976). A generalized bound on LPT sequencing. *RAIRO Informatique*, 10, 17–25.
-* T. Gonzalez, O. H. Ibarra and S. Sahni (1977). Bounds for LPT schedules on uniform processors. *SIAM Journal on Computing*, 6(1), 155–166.
+* R. L. Graham (1969). Bounds on multiprocessing timing anomalies. *SIAM Journal on Applied Mathematics*, 17(2), 416–429. [doi:10.1137/0117039](https://doi.org/10.1137/0117039)
+* E. G. Coffman Jr. and R. Sethi (1976). A generalized bound on LPT sequencing. In *Proceedings of the 1976 ACM SIGMETRICS Conference on Computer Performance Modeling Measurement and Evaluation*, 306–310. [doi:10.1145/800200.806205](https://doi.org/10.1145/800200.806205)
+* T. Gonzalez, O. H. Ibarra and S. Sahni (1977). Bounds for LPT schedules on uniform processors. *SIAM Journal on Computing*, 6(1), 155–166. [doi:10.1137/0206013](https://doi.org/10.1137/0206013)

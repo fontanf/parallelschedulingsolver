@@ -40,7 +40,8 @@ target_sources(ParallelSchedulingSolver_moore_hodgson PRIVATE
 target_include_directories(ParallelSchedulingSolver_moore_hodgson PUBLIC
     ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(ParallelSchedulingSolver_moore_hodgson PUBLIC
-    ParallelSchedulingSolver_parallelschedulingsolver)
+    ParallelSchedulingSolver_parallelschedulingsolver
+    OptimizationTools::containers)
 add_library(ParallelSchedulingSolver::moore_hodgson ALIAS ParallelSchedulingSolver_moore_hodgson)
 
 add_library(ParallelSchedulingSolver_assignment_total_flow_time)

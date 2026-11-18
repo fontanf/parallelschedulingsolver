@@ -45,7 +45,7 @@ When the instance has no release dates and equal weights, the algorithm sets the
 
 ## References
 
-* W. A. Horn (1973). Minimizing average flow time with parallel machines. *Operations Research*, 21(3), 846–847.
-* J. Bruno, E. G. Coffman Jr. and R. Sethi (1974). Scheduling independent tasks to reduce mean finishing time. *Communications of the ACM*, 17(7), 382–387.
-* H. W. Kuhn (1955). The Hungarian method for the assignment problem. *Naval Research Logistics Quarterly*, 2(1–2), 83–97.
-* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362.
+* W. A. Horn (1973). Minimizing average flow time with parallel machines. *Operations Research*, 21(3), 846–847. [doi:10.1287/opre.21.3.846](https://doi.org/10.1287/opre.21.3.846)
+* J. Bruno, E. G. Coffman Jr. and R. Sethi (1974). Scheduling independent tasks to reduce mean finishing time. *Communications of the ACM*, 17(7), 382–387. [doi:10.1145/361011.361064](https://doi.org/10.1145/361011.361064)
+* H. W. Kuhn (1955). The Hungarian method for the assignment problem. *Naval Research Logistics Quarterly*, 2(1–2), 83–97. [doi:10.1002/nav.3800020109](https://doi.org/10.1002/nav.3800020109)
+* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362. [doi:10.1016/S0167-5060(08)70743-X](https://doi.org/10.1016/S0167-5060(08)70743-X)

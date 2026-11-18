@@ -45,8 +45,8 @@ When the instance has no release dates, the algorithm sets the bound to the valu
 
 ## References
 
-* W. E. Smith (1956). Various optimizers for single-stage production. *Naval Research Logistics Quarterly*, 3(1–2), 59–66.
+* W. E. Smith (1956). Various optimizers for single-stage production. *Naval Research Logistics Quarterly*, 3(1–2), 59–66. [doi:10.1002/nav.3800030106](https://doi.org/10.1002/nav.3800030106)
 * R. W. Conway, W. L. Maxwell and L. W. Miller (1967). *Theory of Scheduling*. Addison-Wesley.
-* T. Kawaguchi and S. Kyan (1986). Worst case bound of an LRF schedule for the mean weighted flow-time problem. *SIAM Journal on Computing*, 15(4), 1119–1129.
-* J. Bruno, E. G. Coffman Jr. and R. Sethi (1974). Scheduling independent tasks to reduce mean finishing time. *Communications of the ACM*, 17(7), 382–387.
-* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362.
+* T. Kawaguchi and S. Kyan (1986). Worst case bound of an LRF schedule for the mean weighted flow-time problem. *SIAM Journal on Computing*, 15(4), 1119–1129. [doi:10.1137/0215081](https://doi.org/10.1137/0215081)
+* J. Bruno, E. G. Coffman Jr. and R. Sethi (1974). Scheduling independent tasks to reduce mean finishing time. *Communications of the ACM*, 17(7), 382–387. [doi:10.1145/361011.361064](https://doi.org/10.1145/361011.361064)
+* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362. [doi:10.1016/S0167-5060(08)70743-X](https://doi.org/10.1016/S0167-5060(08)70743-X)

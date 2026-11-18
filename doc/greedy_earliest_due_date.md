@@ -55,6 +55,6 @@ Note: in the generated test instances, the due date of a job is proportional to 
 ## References
 
 * J. R. Jackson (1955). Scheduling a production line to minimize maximum tardiness. Research Report 43, Management Science Research Project, UCLA.
-* H. Emmons (1969). One-machine sequencing to minimize certain functions of job tardiness. *Operations Research*, 17(4), 701–715.
-* J. Du and J. Y.-T. Leung (1990). Minimizing total tardiness on one machine is NP-hard. *Mathematics of Operations Research*, 15(3), 483–495.
-* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362.
+* H. Emmons (1969). One-machine sequencing to minimize certain functions of job tardiness. *Operations Research*, 17(4), 701–715. [doi:10.1287/opre.17.4.701](https://doi.org/10.1287/opre.17.4.701)
+* J. Du and J. Y.-T. Leung (1990). Minimizing total tardiness on one machine is NP-hard. *Mathematics of Operations Research*, 15(3), 483–495. [doi:10.1287/moor.15.3.483](https://doi.org/10.1287/moor.15.3.483)
+* J. K. Lenstra, A. H. G. Rinnooy Kan and P. Brucker (1977). Complexity of machine scheduling problems. *Annals of Discrete Mathematics*, 1, 343–362. [doi:10.1016/S0167-5060(08)70743-X](https://doi.org/10.1016/S0167-5060(08)70743-X)

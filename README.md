@@ -21,6 +21,8 @@ Download data files:
 python scripts/download_data.py
 ```
 
+The data archives are published as GitHub releases and pinned in `data/data.json` (URL and SHA-256 checksum), so each version of the repository downloads the data it has been tested with. Use `--archives tests` to only download the instances used by the unit tests. To publish a new version of an archive, see `scripts/create_data_archives.py`.
+
 Run:
 ```shell
 ./install/bin/parallelschedulingsolver  --verbosity-level 1  --input ./data/tests/total_flow_time_parallel/tft_n3x3_s0.json  --algorithm assignment-total-flow-time  --certificate solution.json

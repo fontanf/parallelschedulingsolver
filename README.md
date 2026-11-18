@@ -35,13 +35,81 @@ python scripts/visualize.py solution.json
 
 Each algorithm has a page in [`doc/`](doc/) describing it, the problems it supports, the cases in which it is optimal and its guarantees. When an algorithm detects that the instance is one of the special cases in which it is optimal, it sets the bound to the value of its solution and the output reports `"Optimal": true`.
 
-| Algorithm | Option | Optimal for |
-| --- | --- | --- |
-| [Greedy, longest processing time first (LPT)](doc/greedy_longest_processing_time.md) | `--algorithm greedy-longest-processing-time` | $1 \mid\mid C_{\max}$; $P \mid\mid C_{\max}$ if $n \le m + 1$, or if an optimal schedule has at most two jobs per machine, or if $p_j = p$. $\frac{4}{3} - \frac{1}{3m}$ approximation for $P \mid\mid C_{\max}$ |
-| [Greedy, weighted shortest processing time first (WSPT)](doc/greedy_shortest_processing_time.md) | `--algorithm greedy-shortest-processing-time` | $1 \mid\mid \sum w_j C_j$; $P \mid\mid \sum C_j$; $1 \mid\mid \sum w_j T_j$ if all jobs are tardy |
-| [Greedy, earliest due date first (EDD)](doc/greedy_earliest_due_date.md) | `--algorithm greedy-earliest-due-date` | $1 \mid\mid L_{\max}$; $P \mid p_j = p \mid L_{\max}$; $1 \mid\mid \sum T_j$ if at most one job is tardy or due dates are agreeable |
-| [Moore-Hodgson](doc/moore_hodgson.md) | `--algorithm moore-hodgson` | $1 \mid\mid \sum U_j$ |
-| [Assignment, total flow time](doc/assignment_total_flow_time.md) | `--algorithm assignment-total-flow-time` | $R \mid\mid \sum C_j$ |
+### Single machine
+
+#### Objective makespan
+
+$1 \mid \mid C_{\max}$
+* [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time` (optimal)
+
+#### Objective total flow time
+
+$1 \mid \mid \sum C_j$
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal)
+* [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
+
+$1 \mid \mid \sum w_j C_j$
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal)
+
+#### Objective total tardiness
+
+$1 \mid \mid \sum T_j$
+* [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal if at most one job is tardy or if due dates are agreeable)
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
+
+$1 \mid \mid \sum w_j T_j$
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
+
+#### Objective maximum lateness
+
+$1 \mid \mid L_{\max}$
+* [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal)
+
+#### Objective throughput
+
+$1 \mid \mid \sum U_j$
+* [Moore-Hodgson](doc/moore_hodgson.md) `--algorithm moore-hodgson` (optimal)
+* [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal if at most one job is tardy)
+
+$1 \mid \mid \sum w_j U_j$
+* [Moore-Hodgson](doc/moore_hodgson.md) `--algorithm moore-hodgson`
+
+### Identical parallel machines
+
+#### Objective makespan
+
+$P_m \mid \mid C_{\max}$
+* [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time` ($\frac{4}{3} - \frac{1}{3m}$ approximation; optimal if $n \le m + 1$, if an optimal schedule has at most two jobs per machine, or if $p_j = p$)
+
+#### Objective total flow time
+
+$P_m \mid \mid \sum C_j$
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal)
+* [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
+
+$P_m \mid \mid \sum w_j C_j$
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` ($\frac{1 + \sqrt{2}}{2}$ approximation)
+
+#### Objective maximum lateness
+
+$P_m \mid \mid L_{\max}$
+* [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal if $p_j = p$)
+
+### Unrelated parallel machines
+
+#### Objective makespan
+
+$R_m \mid \mid C_{\max}$
+* [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time`
+
+#### Objective total flow time
+
+$R_m \mid \mid \sum C_j$
+* [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
+
+$R_m \mid \mid \sum w_j C_j$
+* [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
 
 ## Tests
 

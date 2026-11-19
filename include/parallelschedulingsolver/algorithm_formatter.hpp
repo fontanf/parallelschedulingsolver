@@ -20,7 +20,8 @@ struct Output: optimizationtools::Output
     }
 
 
-    Time time;
+    /** Time at which the last improvement was found, in seconds. */
+    double time = 0;
 
     Solution solution;
 
@@ -95,6 +96,9 @@ struct Parameters: optimizationtools::Parameters
 {
     /** New solution callback. */
     NewSolutionCallback new_solution_callback = [](const Output&) { };
+
+    /** Path of the log file of the external solver (MILP); empty: no log. */
+    std::string solver_log_path = "";
 };
 
 class AlgorithmFormatter

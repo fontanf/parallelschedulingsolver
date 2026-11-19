@@ -9,6 +9,8 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release --parallel && cmake --install build --config Release --prefix install
 ```
 
+The MILP algorithms need an MILP solver: add `-DPARALLELSCHEDULINGSOLVER_USE_HIGHS=ON` (HiGHS, default solver, `--solver highs`) or `-DPARALLELSCHEDULINGSOLVER_USE_CBC=ON` (`--solver cbc`). Add `--solver-log solver.log` to write the log of the solver to a file.
+
 Setup Python environment to use the Python scripts:
 ```shell
 python3 -m venv .venv
@@ -35,6 +37,8 @@ python scripts/visualize.py solution.json
 
 ## Implemented algorithms
 
+The algorithms planned next, in particular state-of-the-art ones, are listed in [`doc/roadmap.md`](doc/roadmap.md).
+
 Each algorithm has a page in [`doc/`](doc/) describing it, the problems it supports, the cases in which it is optimal and its guarantees. When an algorithm detects that the instance is one of the special cases in which it is optimal, it sets the bound to the value of its solution and the output reports `"Optimal": true`.
 
 ### Single machine
@@ -43,38 +47,70 @@ Each algorithm has a page in [`doc/`](doc/) describing it, the problems it suppo
 
 $1 \mid \mid C_{\max}$
 * [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time` (optimal)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid C_{\max}$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 #### Objective total flow time
 
 $1 \mid \mid \sum C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal)
 * [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid \sum C_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 $1 \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid \sum w_j C_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 #### Objective total tardiness
 
 $1 \mid \mid \sum T_j$
 * [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal if at most one job is tardy or if due dates are agreeable)
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid \sum T_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 $1 \mid \mid \sum w_j T_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid \sum w_j T_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 #### Objective maximum lateness
 
 $1 \mid \mid L_{\max}$
 * [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid L_{\max}$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 #### Objective throughput
 
 $1 \mid \mid \sum U_j$
 * [Moore-Hodgson](doc/moore_hodgson.md) `--algorithm moore-hodgson` (optimal)
 * [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal if at most one job is tardy)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid \sum U_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 $1 \mid \mid \sum w_j U_j$
 * [Moore-Hodgson](doc/moore_hodgson.md) `--algorithm moore-hodgson`
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$1 \mid r_j \mid \sum w_j U_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 ### Identical parallel machines
 
@@ -82,20 +118,52 @@ $1 \mid \mid \sum w_j U_j$
 
 $P_m \mid \mid C_{\max}$
 * [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time` ($\frac{4}{3} - \frac{1}{3m}$ approximation; optimal if $n \le m + 1$, if an optimal schedule has at most two jobs per machine, or if $p_j = p$)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$P_m \mid r_j \mid C_{\max}$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 #### Objective total flow time
 
 $P_m \mid \mid \sum C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal)
 * [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$P_m \mid r_j \mid \sum C_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 $P_m \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` ($\frac{1 + \sqrt{2}}{2}$ approximation)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$P_m \mid r_j \mid \sum w_j C_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+#### Objective total tardiness
+
+$P_m \mid \mid \sum w_j T_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$P_m \mid r_j \mid \sum w_j T_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 #### Objective maximum lateness
 
 $P_m \mid \mid L_{\max}$
 * [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal if $p_j = p$)
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$P_m \mid r_j \mid L_{\max}$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+#### Objective throughput
+
+$P_m \mid \mid \sum w_j U_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$P_m \mid r_j \mid \sum w_j U_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 ### Unrelated parallel machines
 
@@ -103,15 +171,52 @@ $P_m \mid \mid L_{\max}$
 
 $R_m \mid \mid C_{\max}$
 * [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time`
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$R_m \mid r_j \mid C_{\max}$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 #### Objective total flow time
 
 $R_m \mid \mid \sum C_j$
 * [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$R_m \mid r_j \mid \sum C_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 $R_m \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$R_m \mid r_j \mid \sum w_j C_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+#### Objective total tardiness
+
+$R_m \mid \mid \sum w_j T_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$R_m \mid r_j \mid \sum w_j T_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+#### Objective maximum lateness
+
+$R_m \mid \mid L_{\max}$
+* [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date`
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$R_m \mid r_j \mid L_{\max}$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+#### Objective throughput
+
+$R_m \mid \mid \sum w_j U_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+
+$R_m \mid r_j \mid \sum w_j U_j$
+* [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 
 ## Tests
 
@@ -151,7 +256,13 @@ python3 scripts/solve_test_data.py --criterion total-flow-time --output test/alg
     data/test_tft_identical.txt \
     data/test_tft_identical_equal_processing_times.txt \
     data/test_tft_unrelated.txt
+python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/milp_time_indexed_test.txt \
+    --keep-if-solved-by milp-time-indexed --time-limit 0.5 \
+    "--keep-if-solved-with=--normal-instants 1" "--keep-if-solved-with=--normal-instants 0" \
+    --instances data/test_*.txt
 ```
+
+The last command keeps the instances on which the time-indexed MILP proves the optimality of the reference value within 0.5 s, with and without normal instants, so that its tests stay fast. It requires a build with HiGHS.
 
 For example, to get the optimal values of all the unrelated machines total flow time instances, including the ones too large to enumerate:
 ```shell

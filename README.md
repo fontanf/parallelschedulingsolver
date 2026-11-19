@@ -48,9 +48,11 @@ Each algorithm has a page in [`doc/`](doc/) describing it, the problems it suppo
 $1 \mid \mid C_{\max}$
 * [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time` (optimal)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 $1 \mid r_j \mid C_{\max}$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 #### Objective total flow time
 
@@ -91,6 +93,7 @@ $1 \mid r_j \mid \sum w_j T_j$
 $1 \mid \mid L_{\max}$
 * [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 $1 \mid r_j \mid L_{\max}$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
@@ -119,9 +122,11 @@ $1 \mid r_j \mid \sum w_j U_j$
 $P_m \mid \mid C_{\max}$
 * [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time` ($\frac{4}{3} - \frac{1}{3m}$ approximation; optimal if $n \le m + 1$, if an optimal schedule has at most two jobs per machine, or if $p_j = p$)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 $P_m \mid r_j \mid C_{\max}$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 #### Objective total flow time
 
@@ -153,6 +158,7 @@ $P_m \mid r_j \mid \sum w_j T_j$
 $P_m \mid \mid L_{\max}$
 * [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date` (optimal if $p_j = p$)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 $P_m \mid r_j \mid L_{\max}$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
@@ -172,9 +178,11 @@ $P_m \mid r_j \mid \sum w_j U_j$
 $R_m \mid \mid C_{\max}$
 * [Greedy LPT](doc/greedy_longest_processing_time.md) `--algorithm greedy-longest-processing-time`
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 $R_m \mid r_j \mid C_{\max}$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 #### Objective total flow time
 
@@ -206,6 +214,7 @@ $R_m \mid r_j \mid \sum w_j T_j$
 $R_m \mid \mid L_{\max}$
 * [Greedy EDD](doc/greedy_earliest_due_date.md) `--algorithm greedy-earliest-due-date`
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
+* [Assignment MILP](doc/milp_assignment.md) `--algorithm milp-assignment` (exact)
 
 $R_m \mid r_j \mid L_{\max}$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
@@ -260,9 +269,20 @@ python3 scripts/solve_test_data.py --criterion objective --output test/algorithm
     --keep-if-solved-by milp-time-indexed --time-limit 0.5 \
     "--keep-if-solved-with=--normal-instants 1" "--keep-if-solved-with=--normal-instants 0" \
     --instances data/test_*.txt
+python3 scripts/solve_test_data.py --criterion makespan --output test/algorithms/milp_assignment_makespan_test.txt --instances \
+    data/test_makespan_single.txt \
+    data/test_makespan_single_release_dates.txt \
+    data/test_makespan_identical.txt \
+    data/test_makespan_identical_equal_processing_times.txt \
+    data/test_makespan_unrelated.txt
+python3 scripts/solve_test_data.py --criterion maximum-lateness --output test/algorithms/milp_assignment_maximum_lateness_test.txt --instances \
+    data/test_tt_single.txt \
+    data/test_tt_identical.txt \
+    data/test_tt_identical_equal_processing_times.txt \
+    data/test_tt_unrelated.txt
 ```
 
-The last command keeps the instances on which the time-indexed MILP proves the optimality of the reference value within 0.5 s, with and without normal instants, so that its tests stay fast. It requires a build with HiGHS.
+The `milp_time_indexed_test.txt` command keeps the instances on which the time-indexed MILP proves the optimality of the reference value within 0.5 s, with and without normal instants, so that its tests stay fast. It requires a build with HiGHS.
 
 For example, to get the optimal values of all the unrelated machines total flow time instances, including the ones too large to enumerate:
 ```shell

@@ -79,4 +79,17 @@ if(PARALLELSCHEDULINGSOLVER_USE_HIGHS)
     gtest_discover_tests(ParallelSchedulingSolver_milp_time_indexed_test
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         PROPERTIES TIMEOUT 3600)
+
+    add_executable(ParallelSchedulingSolver_milp_assignment_test)
+    target_sources(ParallelSchedulingSolver_milp_assignment_test PRIVATE
+        milp_assignment_makespan_test.txt
+        milp_assignment_maximum_lateness_test.txt
+        milp_assignment_test.cpp)
+    target_link_libraries(ParallelSchedulingSolver_milp_assignment_test
+        ParallelSchedulingSolver_tests
+        ParallelSchedulingSolver_milp_assignment
+        GTest::gtest_main)
+    gtest_discover_tests(ParallelSchedulingSolver_milp_assignment_test
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        PROPERTIES TIMEOUT 3600)
 endif()

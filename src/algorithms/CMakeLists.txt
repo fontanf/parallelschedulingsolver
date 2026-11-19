@@ -53,6 +53,15 @@ target_link_libraries(ParallelSchedulingSolver_assignment_total_flow_time PUBLIC
     ParallelSchedulingSolver_parallelschedulingsolver)
 add_library(ParallelSchedulingSolver::assignment_total_flow_time ALIAS ParallelSchedulingSolver_assignment_total_flow_time)
 
+add_library(ParallelSchedulingSolver_milp)
+target_sources(ParallelSchedulingSolver_milp PRIVATE
+    milp.cpp)
+target_include_directories(ParallelSchedulingSolver_milp PUBLIC
+    ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(ParallelSchedulingSolver_milp PUBLIC
+    ParallelSchedulingSolver_parallelschedulingsolver
+    MathOptSolversCMake::mathopt)
+
 add_library(ParallelSchedulingSolver_milp_time_indexed)
 target_sources(ParallelSchedulingSolver_milp_time_indexed PRIVATE
     milp_time_indexed.cpp)
@@ -62,5 +71,17 @@ target_link_libraries(ParallelSchedulingSolver_milp_time_indexed PUBLIC
     ParallelSchedulingSolver_greedy_longest_processing_time
     ParallelSchedulingSolver_greedy_shortest_processing_time
     ParallelSchedulingSolver_greedy_earliest_due_date
-    MathOptSolversCMake::mathopt)
+    ParallelSchedulingSolver_milp)
 add_library(ParallelSchedulingSolver::milp_time_indexed ALIAS ParallelSchedulingSolver_milp_time_indexed)
+
+add_library(ParallelSchedulingSolver_milp_assignment)
+target_sources(ParallelSchedulingSolver_milp_assignment PRIVATE
+    milp_assignment.cpp)
+target_include_directories(ParallelSchedulingSolver_milp_assignment PUBLIC
+    ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(ParallelSchedulingSolver_milp_assignment PUBLIC
+    ParallelSchedulingSolver_greedy_longest_processing_time
+    ParallelSchedulingSolver_greedy_shortest_processing_time
+    ParallelSchedulingSolver_greedy_earliest_due_date
+    ParallelSchedulingSolver_milp)
+add_library(ParallelSchedulingSolver::milp_assignment ALIAS ParallelSchedulingSolver_milp_assignment)

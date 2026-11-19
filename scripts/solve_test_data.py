@@ -43,7 +43,16 @@ import sys
 import tempfile
 
 
+# Criterion of the objective of an instance file.
+OBJECTIVE_CRITERIA = {
+        "Makespan": "makespan",
+        "Total flow time": "total-flow-time",
+        "Total tardiness": "total-tardiness",
+        "Maximum lateness": "maximum-lateness",
+        "Throughput": "throughput"}
+
 CRITERIA = [
+        "objective",
         "makespan",
         "total-flow-time",
         "total-tardiness",
@@ -153,7 +162,7 @@ def solve_parallel_machines(jobs, number_of_machines, criterion, maximum_size):
     return best
 
 
-def solve_with_algorithm(instance_full_path, algorithm, time_limit):
+def solve_with_algorithm(instance_full_path, algorithm, time_limit, arguments=()):
     main = os.path.join("install", "bin", "parallelschedulingsolver")
     with tempfile.TemporaryDirectory() as tmp_dir:
         json_output_path = os.path.join(tmp_dir, "output.json")
@@ -164,7 +173,7 @@ def solve_with_algorithm(instance_full_path, algorithm, time_limit):
                 "--format", "json",
                 "--algorithm", algorithm,
                 "--output", json_output_path,
-                "--time-limit", str(time_limit)]
+                "--time-limit", str(time_limit)] + list(arguments)
         print(" ".join(command), file=sys.stderr)
         subprocess.run(command, check=True)
         with open(json_output_path, "r") as json_output_file:
@@ -184,7 +193,7 @@ method.add_argument(
         "--criterion",
         type=str,
         choices=CRITERIA,
-        help="criterion to optimize by brute force (the objective of the instance file is ignored)")
+        help="criterion to optimize by brute force; 'objective': the objective of each instance file")
 parser.add_argument(
         "--instances",
         type=str,
@@ -206,6 +215,15 @@ parser.add_argument(
         type=float,
         default=1,
         help="algorithm: time limit in seconds")
+parser.add_argument(
+        "--keep-if-solved-by",
+        type=str,
+        help="brute force: only keep the instances on which this algorithm proves the optimality of the reference value within '--time-limit' (used to build the test lists of slow exact algorithms)")
+parser.add_argument(
+        "--keep-if-solved-with",
+        type=str,
+        action="append",
+        help="with '--keep-if-solved-by': arguments of the algorithm, e.g. '--normal-instants 0'; repeat it to require each set of arguments")
 args = parser.parse_args()
 
 with open(args.output, 'w') as output_file:
@@ -228,6 +246,9 @@ with open(args.output, 'w') as output_file:
                     with open(instance_full_path, 'r') as instance_file:
                         instance = json.load(instance_file)
                     jobs = instance["jobs"]
+                    criterion = args.criterion
+                    if criterion == "objective":
+                        criterion = OBJECTIVE_CRITERIA[instance["objective"]]
                     for job in jobs:
                         job.setdefault("release_date", 0)
                         job.setdefault("weight", 1)
@@ -235,16 +256,40 @@ with open(args.output, 'w') as output_file:
                     if number_of_machines == 1:
                         value = solve_single_machine(
                                 jobs,
-                                args.criterion,
+                                criterion,
                                 args.maximum_size)
                     else:
-                        value = solve_parallel_machines(
-                                jobs,
-                                number_of_machines,
-                                args.criterion,
-                                args.maximum_size)
+                        try:
+                            value = solve_parallel_machines(
+                                    jobs,
+                                    number_of_machines,
+                                    criterion,
+                                    args.maximum_size)
+                        except ValueError as error:
+                            # With '--criterion objective', skip the
+                            # instances whose objective isn't supported.
+                            if args.criterion != "objective":
+                                raise
+                            print(f"{instance_base_path}: skipped ({error})", file=sys.stderr)
+                            continue
                     if value is None:
                         print(f"{instance_base_path}: skipped (too large)", file=sys.stderr)
                         continue
+                    if args.keep_if_solved_by is not None:
+                        solved = True
+                        for arguments in (args.keep_if_solved_with or [""]):
+                            algorithm_value = solve_with_algorithm(
+                                    instance_full_path,
+                                    args.keep_if_solved_by,
+                                    args.time_limit,
+                                    arguments.split())
+                            if algorithm_value is None:
+                                solved = False
+                                break
+                            if algorithm_value != value:
+                                sys.exit(f"{instance_base_path}: {args.keep_if_solved_by} {arguments}: value {algorithm_value} differs from reference {value}")
+                        if not solved:
+                            print(f"{instance_base_path}: skipped (not solved by {args.keep_if_solved_by})", file=sys.stderr)
+                            continue
                 print(f"{instance_base_path} {value}")
                 output_file.write(f"{instance_base_path} {value}\n")

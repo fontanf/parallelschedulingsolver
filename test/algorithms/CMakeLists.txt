@@ -66,3 +66,17 @@ target_link_libraries(ParallelSchedulingSolver_assignment_total_flow_time_test
 gtest_discover_tests(ParallelSchedulingSolver_assignment_total_flow_time_test
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     PROPERTIES TIMEOUT 3600)
+
+if(PARALLELSCHEDULINGSOLVER_USE_HIGHS)
+    add_executable(ParallelSchedulingSolver_milp_time_indexed_test)
+    target_sources(ParallelSchedulingSolver_milp_time_indexed_test PRIVATE
+        milp_time_indexed_test.txt
+        milp_time_indexed_test.cpp)
+    target_link_libraries(ParallelSchedulingSolver_milp_time_indexed_test
+        ParallelSchedulingSolver_tests
+        ParallelSchedulingSolver_milp_time_indexed
+        GTest::gtest_main)
+    gtest_discover_tests(ParallelSchedulingSolver_milp_time_indexed_test
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        PROPERTIES TIMEOUT 3600)
+endif()

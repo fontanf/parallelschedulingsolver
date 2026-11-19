@@ -5,6 +5,7 @@
 #include "parallelschedulingsolver/algorithms/greedy_earliest_due_date.hpp"
 #include "parallelschedulingsolver/algorithms/moore_hodgson.hpp"
 #include "parallelschedulingsolver/algorithms/assignment_total_flow_time.hpp"
+#include "parallelschedulingsolver/algorithms/milp_time_indexed.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -28,6 +29,8 @@ void read_args(
         parameters.log_to_stderr = vm["log-to-stderr"].as<bool>();
     if (vm.count("log"))
         parameters.log_path = vm["log"].as<std::string>();
+    if (vm.count("solver-log"))
+        parameters.solver_log_path = vm["solver-log"].as<std::string>();
     parameters.log_to_stderr = vm.count("log-to-stderr");
     bool only_write_at_the_end = vm.count("only-write-at-the-end");
     if (!only_write_at_the_end) {
@@ -97,6 +100,15 @@ Output run(
         read_args(parameters, vm);
         return assignment_total_flow_time(instance, parameters);
 
+    } else if (algorithm == "milp-time-indexed") {
+        MilpTimeIndexedParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("solver"))
+            parameters.solver = vm["solver"].as<mathoptsolverscmake::SolverName>();
+        if (vm.count("normal-instants"))
+            parameters.normal_instants = vm["normal-instants"].as<bool>();
+        return milp_time_indexed(instance, parameters);
+
     } else {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -118,7 +130,9 @@ int main(int argc, char *argv[])
         ("format,f", po::value<std::string>(), "Input format")
 
         ("algorithm,a", po::value<std::string>()->required(), "set algorithm")
-        //("solver,", po::value<mathoptsolverscmake::SolverName>(), "set solver")
+        ("solver,", po::value<mathoptsolverscmake::SolverName>(), "set solver")
+        ("solver-log,", po::value<std::string>(), "set the log path of the MILP solver")
+        ("normal-instants,", po::value<bool>(), "time-indexed MILP: restrict the start times to the normal instants (0 or 1)")
 
         ("output,o", po::value<std::string>(), "Output path")
         ("certificate,c", po::value<std::string>(), "Certificate path")

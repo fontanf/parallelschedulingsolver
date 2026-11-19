@@ -139,7 +139,7 @@ Exact: when the solver terminates, the bound equals the value of the solution an
 
 ## Limits
 
-* The size of the model is pseudo-polynomial: about $n \, m \, T$ variables, where $T$ is the horizon. It doesn't scale to large processing times.
+* The size of the model is pseudo-polynomial: about $n \, m \, T$ variables, where $T$ is the horizon. It doesn't scale to large and varied processing times: the [positional MILP](milp_positional.md) doesn't depend on them.
 * The linear relaxation is strong for the sum objectives, but weak for $C_{\max}$: with a 1 s time limit and normal instants, 20 of the 40 makespan test instances on identical machines are solved (28 of the 40 total flow time ones). The [assignment MILP](milp_assignment.md) is better for the makespan and the maximum lateness.
 
 ## Tests

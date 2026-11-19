@@ -7,6 +7,7 @@
 #include "parallelschedulingsolver/algorithms/assignment_total_flow_time.hpp"
 #include "parallelschedulingsolver/algorithms/milp_time_indexed.hpp"
 #include "parallelschedulingsolver/algorithms/milp_assignment.hpp"
+#include "parallelschedulingsolver/algorithms/milp_positional.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -116,6 +117,13 @@ Output run(
         if (vm.count("solver"))
             parameters.solver = vm["solver"].as<mathoptsolverscmake::SolverName>();
         return milp_assignment(instance, parameters);
+
+    } else if (algorithm == "milp-positional") {
+        MilpPositionalParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("solver"))
+            parameters.solver = vm["solver"].as<mathoptsolverscmake::SolverName>();
+        return milp_positional(instance, parameters);
 
     } else {
         throw std::invalid_argument(

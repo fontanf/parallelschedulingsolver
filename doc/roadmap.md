@@ -8,6 +8,7 @@ Status: **planned**, **in progress** or **done** (with the `--algorithm` option)
 
 * **Done**: time-indexed MILP with normal instants, `--algorithm milp-time-indexed`. All the objectives of the repository on single, identical and unrelated machines, with release dates. See [`milp_time_indexed.md`](milp_time_indexed.md).
 * **Done**: assignment MILP, `--algorithm milp-assignment`. Makespan with release dates and maximum lateness, on single, identical and unrelated machines. See [`milp_assignment.md`](milp_assignment.md).
+* **Done**: positional MILP, `--algorithm milp-positional`. All the objectives of the repository on single, identical and unrelated machines, with release dates; its size doesn't depend on the processing times. See [`milp_positional.md`](milp_positional.md).
 * **Planned**: A. Kramer and A. Subramanian (2019). A unified heuristic and an annotated bibliography for a large class of earliness–tardiness scheduling problems. *Journal of Scheduling*, 22, 21–57. [doi:10.1007/s10951-017-0549-6](https://doi.org/10.1007/s10951-017-0549-6)
   * Local search (UILS) for $R \mid r_j \mid \sum w_j T_j$. The same framework covers single and parallel machine problems with $\sum w_j C_j$, $\sum w_j T_j$ and release dates, so it can serve most objectives of the repository.
   * Efficient move evaluations for parallel machines.

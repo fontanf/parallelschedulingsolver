@@ -28,6 +28,7 @@ if(PARALLELSCHEDULINGSOLVER_BUILD_MAIN)
         ParallelSchedulingSolver_assignment_total_flow_time
         ParallelSchedulingSolver_milp_time_indexed
         ParallelSchedulingSolver_milp_assignment
+        ParallelSchedulingSolver_milp_positional
         Boost::program_options
         Boost::filesystem)
     set_target_properties(ParallelSchedulingSolver_main PROPERTIES OUTPUT_NAME "parallelschedulingsolver")

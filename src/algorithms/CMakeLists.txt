@@ -85,3 +85,15 @@ target_link_libraries(ParallelSchedulingSolver_milp_assignment PUBLIC
     ParallelSchedulingSolver_greedy_earliest_due_date
     ParallelSchedulingSolver_milp)
 add_library(ParallelSchedulingSolver::milp_assignment ALIAS ParallelSchedulingSolver_milp_assignment)
+
+add_library(ParallelSchedulingSolver_milp_positional)
+target_sources(ParallelSchedulingSolver_milp_positional PRIVATE
+    milp_positional.cpp)
+target_include_directories(ParallelSchedulingSolver_milp_positional PUBLIC
+    ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(ParallelSchedulingSolver_milp_positional PUBLIC
+    ParallelSchedulingSolver_greedy_longest_processing_time
+    ParallelSchedulingSolver_greedy_shortest_processing_time
+    ParallelSchedulingSolver_greedy_earliest_due_date
+    ParallelSchedulingSolver_milp)
+add_library(ParallelSchedulingSolver::milp_positional ALIAS ParallelSchedulingSolver_milp_positional)

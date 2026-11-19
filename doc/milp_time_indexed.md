@@ -38,62 +38,62 @@ Time is discretized: a binary variable tells whether a job starts at a given tim
 
 **Objective**: depending on the objective
 
-$$
+```math
 \min z
 \qquad \text{(total weighted flow time, total weighted tardiness)}
-$$
+```
 
-$$
+```math
 \max z
 \qquad \text{(throughput)}
-$$
+```
 
-$$
+```math
 \min C_{\max}
 \qquad \text{(makespan)}
-$$
+```
 
-$$
+```math
 \min L_{\max}
 \qquad \text{(maximum lateness)}
-$$
+```
 
 **Constraints**:
 
 * Assignment: each job starts exactly once
 
-$$
+```math
 \forall j \qquad \sum_{i, s \in S_{ij}} x_{ijs} = 1
-$$
+```
 
 * Capacity, as a flow: on each machine, one unit of flow goes from time $t_{i,0}$ to time $t_{i,K_i}$, either through a job, from its start time to its completion time, or through an idle arc. Hence the jobs of a machine don't overlap.
 
-$$
+```math
 \forall i, \; \forall k = 0, \ldots, K_i \qquad
 \sum_{j, s \,:\, s = t_{i,k}} x_{ijs} + y_{ik}
 - \sum_{j, s \,:\, C_{ijs} = t_{i,k}} x_{ijs} - y_{i,k-1}
 = \begin{cases} 1 & \text{if } k = 0 \\ -1 & \text{if } k = K_i \\ 0 & \text{otherwise} \end{cases}
-$$
+```
 
 (with $y_{i,-1} = y_{i,K_i} = 0$; jobs with $p_{ij} = 0$ don't use any capacity and don't appear in these constraints)
 
 * Value, for the sum objectives
 
-$$
+```math
 z = \sum_{i, j, s \in S_{ij}} c_{ijs} \, x_{ijs}
-$$
+```
 
 * Makespan, for this objective
 
-$$
+```math
 \forall j \qquad C_{\max} \ge \sum_{i, s \in S_{ij}} C_{ijs} \, x_{ijs}
-$$
+```
 
 * Maximum lateness, for this objective
 
-$$
+```math
 \forall j \text{ with a due date} \qquad L_{\max} \ge \sum_{i, s \in S_{ij}} (C_{ijs} - d_j) \, x_{ijs}
-$$
+```
 
 The classical capacity constraints are "at most one job in process on machine $i$ at time $t$", for each $t$; they have $O(n \, T \, \bar{p})$ non-zeros, where $T$ is the horizon and $\bar{p}$ the average processing time. Their matrix is an interval matrix, and the flow constraints are obtained by taking the differences of consecutive rows: they have the same linear relaxation, but each $x_{ijs}$ appears in only 3 constraints.
 

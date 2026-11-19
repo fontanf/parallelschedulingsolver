@@ -19,28 +19,33 @@ Time is discretized: a binary variable tells whether a job starts at a given tim
 * machines $i = 1, \ldots, m$ and jobs $j = 1, \ldots, n$; for each job $j$: a processing time $p_{ij}$ on each machine $i$, a release date $r_j$, a weight $w_j$ and, optionally, a due date $d_j$
 * for each machine $i$ and each job $j$: a set $S_{ij}$ of possible start times, with $s \ge r_j$ for all $s \in S_{ij}$ (see [Start times](#start-times)); $C_{ijs} = s + p_{ij}$ is the completion time of job $j$ if it starts at time $s$ on machine $i$
 * for each machine $i$: the set $T_i = \{0\} \cup \{s, C_{ijs} : j, s \in S_{ij}\}$ of the possible start and completion times, sorted, $t_{i,0} = 0 < t_{i,1} < \cdots < t_{i,K_i}$
+* for the sum objectives: the cost $c_{ijs}$ of job $j$ if it starts at time $s$ on machine $i$. Since $C_{ijs}$ is a constant, these costs are computed before building the model, so the objective is linear in $x$ even when the criterion isn't linear in the completion time:
+
+| Objective | Cost $c_{ijs}$ |
+| --- | --- |
+| total weighted flow time $\sum w_j (C_j - r_j)$, which differs from $\sum w_j C_j$ by a constant | $w_j \, (C_{ijs} - r_j)$ |
+| total weighted tardiness $\sum w_j T_j$ | $w_j \max(0, C_{ijs} - d_j)$ (0 if job $j$ has no due date) |
+| throughput $\sum w_j (1 - U_j)$ | $w_j$ if job $j$ has a due date and $C_{ijs} \le d_j$, 0 otherwise |
+
+* $UB$: the value of the initial solution (see [Initial solution and variable filtering](#initial-solution-and-variable-filtering))
 
 **Variables**:
 
 * $x_{ijs} \in \{0, 1\}$, $s \in S_{ij}$: $x_{ijs} = 1$ iff job $j$ starts at time $s$ on machine $i$
 * $y_{ik} \in [0, 1]$, $k = 0, \ldots, K_i - 1$: idle arc of machine $i$ from time $t_{i,k}$ to time $t_{i,k+1}$
+* $z \in \mathbb{Z}$: the value of the solution, for the sum objectives; $0 \le z \le UB$ for the minimization objectives, $z \ge UB$ for the throughput
 * $C_{\max}$, $L_{\max}$: for the corresponding objectives
 
 **Objective**: depending on the objective
 
 $$
-\min \sum_{i, j, s} w_j \, (C_{ijs} - r_j) \, x_{ijs}
-\qquad \text{(total weighted flow time } \textstyle\sum w_j (C_j - r_j) \text{, which differs from } \sum w_j C_j \text{ by a constant)}
+\min z
+\qquad \text{(total weighted flow time, total weighted tardiness)}
 $$
 
 $$
-\min \sum_{i, j, s} w_j \max(0, C_{ijs} - d_j) \, x_{ijs}
-\qquad \text{(total weighted tardiness } \textstyle\sum w_j T_j \text{)}
-$$
-
-$$
-\max \sum_{i, j, s \,:\, C_{ijs} \le d_j} w_j \, x_{ijs}
-\qquad \text{(throughput } \textstyle\sum w_j (1 - U_j) \text{)}
+\max z
+\qquad \text{(throughput)}
 $$
 
 $$
@@ -71,6 +76,12 @@ $$
 $$
 
 (with $y_{i,-1} = y_{i,K_i} = 0$; jobs with $p_{ij} = 0$ don't use any capacity and don't appear in these constraints)
+
+* Value, for the sum objectives
+
+$$
+z = \sum_{i, j, s \in S_{ij}} c_{ijs} \, x_{ijs}
+$$
 
 * Makespan, for this objective
 
@@ -120,7 +131,7 @@ HiGHS presolve is turned off: it barely reduces the model and slows down the sol
 
 Without presolve, HiGHS 1.16.0 doesn't check the time limit during the feasibility jump heuristic and the first solve of the root linear relaxation, so a run can exceed the time limit by a few seconds on the largest models.
 
-For the sum objectives, the cost is moved to an integer variable $z = \sum c_{ijs} x_{ijs}$, and the model optimizes $z$, with $z \le UB$ ($z \ge UB$ for the throughput). Otherwise, after finding a first solution, HiGHS derives cliques from the objective cutoff on the binary variables (`HighsCliqueTable::extractObjCliques`), which exhausted the memory (more than 20 GB) on instances with 15 to 25 jobs with HiGHS 1.12.0 (fixed in 1.16.0). The bound on $z$ is not implied by the constraint defining it, so presolve doesn't substitute $z$ back into the objective.
+For the sum objectives, the model optimizes the variable $z$ instead of $\sum c_{ijs} x_{ijs}$ directly, which gives the same linear relaxation. With the costs on the $x_{ijs}$ variables, after finding a first solution, HiGHS derives cliques from the objective cutoff on the binary variables (`HighsCliqueTable::extractObjCliques`), which exhausted the memory (more than 20 GB) on instances with 15 to 25 jobs with HiGHS 1.12.0 (fixed in 1.16.0). The bound on $z$ is not implied by the constraint defining it, so presolve doesn't substitute $z$ back into the objective.
 
 ## Optimality
 

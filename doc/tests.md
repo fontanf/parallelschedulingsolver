@@ -114,6 +114,12 @@ An algorithm that optimizes the objective of the instance can be tested on anoth
 
 Use them only for algorithms that are optimal on the listed instances: exact algorithms, and the other algorithms on the special cases where they are optimal (e.g. LPT on one machine, SPT for $P \mid\mid \sum C_j$).
 
+### Heuristic algorithms
+
+The solution of a local search or of another randomized heuristic can't be predicted, so `ScheduleTest` doesn't apply to them. They are tested with `ExactAlgorithmTest` too, without the bound criterion: on instances small enough for the heuristic to always find an optimal solution quickly, check that it finds the optimal value. The criterion for choosing the instances is their size, not the time an exact algorithm needs to solve them. Fix the seed of the random generator in the test, so that a failure can be reproduced.
+
+For example, `test/algorithms/local_search_test.cpp` checks that the local search finds the optimal value of the total flow time and total tardiness test instances (up to 25 jobs) with seed 0.
+
 ## Reference values
 
 The optimal values of the `.txt` files are computed by `scripts/solve_test_data.py`, never by the tested algorithm itself, with one of two methods:
@@ -164,7 +170,18 @@ python3 scripts/solve_test_data.py --criterion maximum-lateness --output test/al
 python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/milp_positional_test.txt \
     --keep-if-solved-by milp-positional --time-limit 0.5 \
     --instances data/test_*.txt
+python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/local_search_test.txt --instances \
+    data/test_tft_*.txt data/test_twft_*.txt data/test_tt_*.txt data/test_twt_*.txt
+python3 scripts/solve_test_data.py --algorithm milp-time-indexed --time-limit 10 --output test/algorithms/local_search_parallel_tardiness_test.txt --instances \
+    data/test_tt_identical.txt \
+    data/test_tt_identical_equal_processing_times.txt \
+    data/test_tt_unrelated.txt \
+    data/test_twt_identical.txt \
+    data/test_twt_identical_equal_processing_times.txt \
+    data/test_twt_unrelated.txt
 ```
+
+Brute force doesn't support the total tardiness on parallel machines, so the reference values of `local_search_parallel_tardiness_test.txt` are the ones proved by the time-indexed MILP.
 
 For example, to get the optimal values of all the unrelated machines total flow time instances, including the ones too large to enumerate:
 ```shell

@@ -6,6 +6,7 @@
 #include "parallelschedulingsolver/algorithms/moore_hodgson.hpp"
 #include "parallelschedulingsolver/algorithms/assignment_total_flow_time.hpp"
 #include "parallelschedulingsolver/algorithms/milp_time_indexed.hpp"
+#include "parallelschedulingsolver/algorithms/local_search.hpp"
 #include "parallelschedulingsolver/algorithms/milp_assignment.hpp"
 #include "parallelschedulingsolver/algorithms/milp_positional.hpp"
 
@@ -102,6 +103,15 @@ Output run(
         read_args(parameters, vm);
         return assignment_total_flow_time(instance, parameters);
 
+    } else if (algorithm == "local-search") {
+        LocalSearchParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("maximum-number-of-restarts"))
+            parameters.maximum_number_of_restarts = vm["maximum-number-of-restarts"].as<Counter>();
+        if (vm.count("maximum-number-of-perturbations-without-improvement"))
+            parameters.maximum_number_of_perturbations_without_improvement = vm["maximum-number-of-perturbations-without-improvement"].as<Counter>();
+        return local_search(instance, generator, nullptr, parameters);
+
     } else if (algorithm == "milp-time-indexed") {
         MilpTimeIndexedParameters parameters;
         read_args(parameters, vm);
@@ -154,7 +164,9 @@ int main(int argc, char *argv[])
         ("certificate,c", po::value<std::string>(), "Certificate path")
         ("log,l", po::value<std::string>(), "Log path")
         ("time-limit,t", po::value<double>(), "Time limit in seconds")
-        ("seed,s", po::value<Seed>(), "Seed (not used)")
+        ("seed,s", po::value<Seed>(), "Seed (used by the local search)")
+        ("maximum-number-of-restarts,", po::value<Counter>(), "local search: maximum number of restarts")
+        ("maximum-number-of-perturbations-without-improvement,", po::value<Counter>(), "local search: maximum number of consecutive perturbations without improvement in a restart")
         ("only-write-at-the-end,e", "Only write output and certificate files at the end")
         ("verbosity-level,v", po::value<int>(), "Verbosity level")
         ("log-to-stderr,w", "Write log in stderr")

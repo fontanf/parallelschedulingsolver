@@ -59,6 +59,7 @@ add_executable(ParallelSchedulingSolver_local_search_test)
 target_sources(ParallelSchedulingSolver_local_search_test PRIVATE
     local_search_test.txt
     local_search_parallel_tardiness_test.txt
+    local_search_setup_times_test.txt
     local_search_test.cpp)
 target_link_libraries(ParallelSchedulingSolver_local_search_test
     ParallelSchedulingSolver_tests

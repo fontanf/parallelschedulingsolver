@@ -57,6 +57,15 @@ inline optimizationtools::ObjectiveDirection objective_direction(
  */
 struct Machine
 {
+    /**
+     * Sequence-dependent setup times of the machine, empty if the instance has
+     * no setup times.
+     *
+     * setup_times[job_id_1 + 1][job_id_2] is the setup time when job_id_2 is
+     * processed right after job_id_1 on the machine; setup_times[0][job_id_2]
+     * is the setup time when job_id_2 is the first job of the machine.
+     */
+    std::vector<std::vector<Time>> setup_times;
 };
 
 /**
@@ -104,6 +113,27 @@ public:
     /** Get a job. */
     const Job& job(JobId job_id) const { return jobs_[job_id]; }
 
+    /** Return true if the instance has sequence-dependent setup times. */
+    bool has_setup_times() const { return has_setup_times_; }
+
+    /**
+     * Get the setup time when job_id_2 is processed right after job_id_1 on a
+     * machine; job_id_1 = -1 if job_id_2 is the first job of the machine.
+     *
+     * The setup of a job is performed right before it, and may be performed
+     * before its release date; the job itself starts at or after its release
+     * date.
+     */
+    Time setup_time(
+            MachineId machine_id,
+            JobId job_id_1,
+            JobId job_id_2) const
+    {
+        if (!has_setup_times_)
+            return 0;
+        return machines_[machine_id].setup_times[job_id_1 + 1][job_id_2];
+    }
+
     /*
      * Export
      */
@@ -139,6 +169,9 @@ private:
 
     /** Jobs. */
     std::vector<Job> jobs_;
+
+    /** True if the instance has sequence-dependent setup times. */
+    bool has_setup_times_ = false;
 
     friend class InstanceBuilder;
 

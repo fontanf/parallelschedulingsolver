@@ -16,6 +16,13 @@ Output parallelschedulingsolver::greedy_earliest_due_date(
     Output output(instance);
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Greedy, earliest due date");
+
+    if (instance.has_setup_times()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "sequence-dependent setup times are not supported.");
+    }
+
     algorithm_formatter.print_header();
 
     // Sort jobs in increasing order of due date; jobs without due date last.

@@ -67,8 +67,39 @@ Instance parallelschedulingsolver::generate(
         instance_builder.set_job_weight(job_id, uniform_int(generator, 1, input.weights_range));
     }
 
+    // Setup times.
+    if (input.setup_times_range > 0) {
+        for (MachineId machine_id = 0;
+                machine_id < input.number_of_machines;
+                ++machine_id) {
+            for (JobId job_id_1 = -1; job_id_1 < number_of_jobs; ++job_id_1) {
+                for (JobId job_id_2 = 0; job_id_2 < number_of_jobs; ++job_id_2) {
+                    if (job_id_1 == job_id_2)
+                        continue;
+                    Time setup_time = uniform_int(generator, 0, input.setup_times_range);
+                    if (input.identical_machines || input.equal_processing_times) {
+                        // Same setup times on all machines.
+                        for (MachineId machine_id_2 = 0;
+                                machine_id_2 < input.number_of_machines;
+                                ++machine_id_2) {
+                            instance_builder.set_setup_time(
+                                    machine_id_2, job_id_1, job_id_2, setup_time);
+                        }
+                    } else {
+                        instance_builder.set_setup_time(
+                                machine_id, job_id_1, job_id_2, setup_time);
+                    }
+                }
+            }
+            if (input.identical_machines || input.equal_processing_times)
+                break;
+        }
+        // Mean setup time of a job.
+        mean_processing_time_sum += number_of_jobs * input.setup_times_range / 2.0;
+    }
+
     // Release dates and due dates, relative to the expected makespan without
-    // idle times.
+    // idle times (including the mean setup times).
     double p = mean_processing_time_sum / input.number_of_machines;
     for (JobId job_id = 0; job_id < number_of_jobs; ++job_id) {
         if (input.release_dates_factor > 0) {

@@ -83,6 +83,7 @@ void Solution::write(
                 json["machines"][machine_id]["jobs"][job_pos]["due_date"] = job.due_date;
                 json["machines"][machine_id]["jobs"][job_pos]["weight"] = job.weight;
                 json["machines"][machine_id]["jobs"][job_pos]["processing_time"] = job.processing_times[machine_id];
+                json["machines"][machine_id]["jobs"][job_pos]["setup"] = scheduled_job.setup;
                 json["machines"][machine_id]["jobs"][job_pos]["start"] = scheduled_job.start;
                 json["machines"][machine_id]["jobs"][job_pos]["completion"] = scheduled_job.completion;
             }

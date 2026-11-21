@@ -28,7 +28,7 @@ struct LocalSearchData
 
     // completion_times[machine_id][pos]: completion time of the first pos jobs
     // of machine machine_id in the current solution, i.e. the time at which
-    // the job at position pos can start (if released). Index 0 is 0.
+    // the setup of the job at position pos can start. Index 0 is 0.
     std::vector<std::vector<Time>> completion_times;
 
     // prefix_objective[machine_id][pos]: objective of the first pos jobs of
@@ -52,18 +52,33 @@ inline Time job_contribution(
     }
 }
 
-// Schedule a job on a machine after time 'time' (as early as possible, after
-// its release date), and add its contribution to 'objective'.
+// Last job of the first pos jobs of a sequence; -1 if pos = 0.
+inline JobId last_job(
+        const std::vector<JobId>& jobs,
+        JobId pos)
+{
+    return (pos == 0)? -1: jobs[pos - 1];
+}
+
+// Schedule a job on a machine after job 'last_job_id' completing at time
+// 'time' (-1 if it's the first job of the machine): after its setup, as early
+// as possible after its release date. The setup may be performed before the
+// release date. Add its contribution to 'objective'.
 inline void advance(
         const Instance& instance,
         MachineId machine_id,
         JobId job_id,
         Time& time,
-        Time& objective)
+        Time& objective,
+        JobId& last_job_id)
 {
     const Job& job = instance.job(job_id);
-    time = (std::max)(time, job.release_date) + job.processing_times[machine_id];
+    time = (std::max)(
+            time + instance.setup_time(machine_id, last_job_id, job_id),
+            job.release_date)
+        + job.processing_times[machine_id];
     objective += job_contribution(instance, job_id, time);
+    last_job_id = job_id;
 }
 
 // Schedule the jobs [first, last) on a machine after time 'time'. Return
@@ -75,10 +90,11 @@ inline bool advance_block(
         std::vector<JobId>::const_iterator last,
         Time& time,
         Time& objective,
+        JobId& last_job_id,
         Time bound)
 {
     for (auto it = first; it != last; ++it) {
-        advance(instance, machine_id, *it, time, objective);
+        advance(instance, machine_id, *it, time, objective, last_job_id);
         if (objective >= bound)
             return false;
     }
@@ -87,9 +103,10 @@ inline bool advance_block(
 
 // Objective of a machine whose jobs at positions pos, pos + 1, ... are the
 // ones of the current solution, the previous jobs completing at time 'time'
-// with objective 'objective'.
+// with objective 'objective', the last of them being 'last_job_id'.
 //
-// The objectives are regular, so:
+// The objectives are regular, so, when the last job is the same as in the
+// current solution (always the case without setup times):
 // - if 'time' equals the completion time of the first pos jobs in the
 //   current solution, the end of the schedule is the same as in the current
 //   solution;
@@ -104,6 +121,7 @@ inline Time evaluate_suffix(
         JobId pos,
         Time time,
         Time objective,
+        JobId last_job_id,
         Time bound)
 {
     const std::vector<JobId>& jobs = data.solution.machines_jobs[machine_id];
@@ -113,14 +131,17 @@ inline Time evaluate_suffix(
     if (objective >= bound)
         return bound;
     for (; pos < n; ++pos) {
-        Time suffix_objective = prefix_objective[n] - prefix_objective[pos];
-        if (time == completion_times[pos])
-            return (objective + suffix_objective < bound)? objective + suffix_objective: bound;
-        if (time > completion_times[pos]
-                && objective + suffix_objective >= bound) {
-            return bound;
+        if (!instance.has_setup_times()
+                || last_job_id == last_job(jobs, pos)) {
+            Time suffix_objective = prefix_objective[n] - prefix_objective[pos];
+            if (time == completion_times[pos])
+                return (objective + suffix_objective < bound)? objective + suffix_objective: bound;
+            if (time > completion_times[pos]
+                    && objective + suffix_objective >= bound) {
+                return bound;
+            }
         }
-        advance(instance, machine_id, jobs[pos], time, objective);
+        advance(instance, machine_id, jobs[pos], time, objective, last_job_id);
         if (objective >= bound)
             return bound;
     }
@@ -146,7 +167,8 @@ void update_machine(
     for (JobId p = (std::max)(pos, (JobId)0); p < n; ++p) {
         Time time = completion_times[p];
         Time objective = prefix_objective[p];
-        advance(instance, machine_id, jobs[p], time, objective);
+        JobId last_job_id = last_job(jobs, p);
+        advance(instance, machine_id, jobs[p], time, objective, last_job_id);
         completion_times[p + 1] = time;
         prefix_objective[p + 1] = objective;
     }
@@ -184,11 +206,15 @@ Solution build_solution(
             machine_id < instance.number_of_machines();
             ++machine_id) {
         Time time = 0;
+        JobId last_job_id = -1;
         for (JobId job_id: ls_solution.machines_jobs[machine_id]) {
             const Job& job = instance.job(job_id);
-            Time start = (std::max)(time, job.release_date);
+            Time start = (std::max)(
+                    time + instance.setup_time(machine_id, last_job_id, job_id),
+                    job.release_date);
             solution_builder.append_job_to_machine(machine_id, job_id, start);
             time = start + job.processing_times[machine_id];
+            last_job_id = job_id;
         }
     }
     Solution solution = solution_builder.build();
@@ -312,21 +338,22 @@ bool explore_insert_intra_neighborhood(
                     break;
                 Time time = completion_times[pos_new];
                 Time objective = prefix_objective[pos_new];
+                JobId last_job_id = last_job(jobs, pos_new);
                 if (!advance_block(
                             instance, machine_id,
                             jobs.begin() + pos_old, jobs.begin() + pos_old + size,
-                            time, objective, bound)) {
+                            time, objective, last_job_id, bound)) {
                     continue;
                 }
                 if (!advance_block(
                             instance, machine_id,
                             jobs.begin() + pos_new, jobs.begin() + pos_old,
-                            time, objective, bound)) {
+                            time, objective, last_job_id, bound)) {
                     continue;
                 }
                 objective = evaluate_suffix(
                         instance, data, machine_id,
-                        pos_old + size, time, objective, bound);
+                        pos_old + size, time, objective, last_job_id, bound);
                 if (objective >= bound)
                     continue;
                 delta_best = objective - machine_objective;
@@ -341,24 +368,26 @@ bool explore_insert_intra_neighborhood(
             // The jobs skipped by the block are scheduled incrementally.
             Time time_skipped = completion_times[pos_old];
             Time objective_skipped = prefix_objective[pos_old];
+            JobId last_job_id_skipped = last_job(jobs, pos_old);
             for (JobId pos_new = pos_old + 1; pos_new + size <= n; ++pos_new) {
                 Time bound = machine_objective + delta_best;
                 advance(
                         instance, machine_id, jobs[pos_new + size - 1],
-                        time_skipped, objective_skipped);
+                        time_skipped, objective_skipped, last_job_id_skipped);
                 if (objective_skipped >= bound)
                     break;
                 Time time = time_skipped;
                 Time objective = objective_skipped;
+                JobId last_job_id = last_job_id_skipped;
                 if (!advance_block(
                             instance, machine_id,
                             jobs.begin() + pos_old, jobs.begin() + pos_old + size,
-                            time, objective, bound)) {
+                            time, objective, last_job_id, bound)) {
                     continue;
                 }
                 objective = evaluate_suffix(
                         instance, data, machine_id,
-                        pos_new + size, time, objective, bound);
+                        pos_new + size, time, objective, last_job_id, bound);
                 if (objective >= bound)
                     continue;
                 delta_best = objective - machine_objective;
@@ -443,27 +472,28 @@ bool explore_swap_intra_neighborhood(
                     // [0, pos_1) + B2 + [pos_1 + s1, pos_2) + B1 + [pos_2 + s2, n).
                     Time time = completion_times[pos_1];
                     Time objective = prefix_objective[pos_1];
+                    JobId last_job_id = last_job(jobs, pos_1);
                     if (!advance_block(
                                 instance, machine_id,
                                 jobs.begin() + pos_2, jobs.begin() + pos_2 + s2,
-                                time, objective, bound)) {
+                                time, objective, last_job_id, bound)) {
                         continue;
                     }
                     if (!advance_block(
                                 instance, machine_id,
                                 jobs.begin() + pos_1 + s1, jobs.begin() + pos_2,
-                                time, objective, bound)) {
+                                time, objective, last_job_id, bound)) {
                         continue;
                     }
                     if (!advance_block(
                                 instance, machine_id,
                                 jobs.begin() + pos_1, jobs.begin() + pos_1 + s1,
-                                time, objective, bound)) {
+                                time, objective, last_job_id, bound)) {
                         continue;
                     }
                     objective = evaluate_suffix(
                             instance, data, machine_id,
-                            pos_2 + s2, time, objective, bound);
+                            pos_2 + s2, time, objective, last_job_id, bound);
                     if (objective >= bound)
                         continue;
                     delta_best = objective - machine_objective;
@@ -542,6 +572,7 @@ bool explore_insert_inter_neighborhood(
                     pos_1 + size,
                     completion_times_1[pos_1],
                     prefix_objective_1[pos_1],
+                    last_job(jobs_1, pos_1),
                     std::numeric_limits<Time>::max())
                 - prefix_objective_1[n_1];
 
@@ -550,9 +581,10 @@ bool explore_insert_inter_neighborhood(
                     ++machine_id_2) {
                 if (machine_id_2 == machine_id_1)
                     continue;
+                const std::vector<JobId>& jobs_2 = data.solution.machines_jobs[machine_id_2];
                 const std::vector<Time>& completion_times_2 = data.completion_times[machine_id_2];
                 const std::vector<Time>& prefix_objective_2 = data.prefix_objective[machine_id_2];
-                JobId n_2 = data.solution.machines_jobs[machine_id_2].size();
+                JobId n_2 = jobs_2.size();
                 Time machine_objective_2 = prefix_objective_2[n_2];
 
                 for (JobId pos_2 = 0; pos_2 <= n_2; ++pos_2) {
@@ -562,15 +594,16 @@ bool explore_insert_inter_neighborhood(
                     // [0, pos_2) + block + [pos_2, n_2) on machine_id_2.
                     Time time = completion_times_2[pos_2];
                     Time objective = prefix_objective_2[pos_2];
+                    JobId last_job_id = last_job(jobs_2, pos_2);
                     if (!advance_block(
                                 instance, machine_id_2,
                                 jobs_1.begin() + pos_1, jobs_1.begin() + pos_1 + size,
-                                time, objective, bound)) {
+                                time, objective, last_job_id, bound)) {
                         continue;
                     }
                     objective = evaluate_suffix(
                             instance, data, machine_id_2,
-                            pos_2, time, objective, bound);
+                            pos_2, time, objective, last_job_id, bound);
                     if (objective >= bound)
                         continue;
                     delta_best = delta_1 + objective - machine_objective_2;
@@ -669,15 +702,16 @@ bool explore_swap_inter_neighborhood(
                     // [0, pos_1) + B2 + [pos_1 + size_1, n_1) on machine_id_1.
                     Time time = completion_times_1[pos_1];
                     Time objective_1 = prefix_objective_1[pos_1];
+                    JobId last_job_id = last_job(jobs_1, pos_1);
                     if (!advance_block(
                                 instance, machine_id_1,
                                 jobs_2.begin() + pos_2, jobs_2.begin() + pos_2 + size_2,
-                                time, objective_1, bound_1)) {
+                                time, objective_1, last_job_id, bound_1)) {
                         continue;
                     }
                     objective_1 = evaluate_suffix(
                             instance, data, machine_id_1,
-                            pos_1 + size_1, time, objective_1, bound_1);
+                            pos_1 + size_1, time, objective_1, last_job_id, bound_1);
                     if (objective_1 >= bound_1)
                         continue;
                     Time delta_1 = objective_1 - machine_objective_1;
@@ -685,15 +719,16 @@ bool explore_swap_inter_neighborhood(
                     Time bound_2 = machine_objective_2 + delta_best - delta_1;
                     time = completion_times_2[pos_2];
                     Time objective_2 = prefix_objective_2[pos_2];
+                    last_job_id = last_job(jobs_2, pos_2);
                     if (!advance_block(
                                 instance, machine_id_2,
                                 jobs_1.begin() + pos_1, jobs_1.begin() + pos_1 + size_1,
-                                time, objective_2, bound_2)) {
+                                time, objective_2, last_job_id, bound_2)) {
                         continue;
                     }
                     objective_2 = evaluate_suffix(
                             instance, data, machine_id_2,
-                            pos_2 + size_2, time, objective_2, bound_2);
+                            pos_2 + size_2, time, objective_2, last_job_id, bound_2);
                     if (objective_2 >= bound_2)
                         continue;
                     delta_best = delta_1 + objective_2 - machine_objective_2;

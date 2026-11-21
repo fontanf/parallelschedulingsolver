@@ -438,6 +438,13 @@ Output parallelschedulingsolver::milp_time_indexed(
     Output output(instance);
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Time-indexed MILP");
+
+    if (instance.has_setup_times()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "sequence-dependent setup times are not supported.");
+    }
+
     algorithm_formatter.print_header();
 
     if (instance.number_of_jobs() == 0) {

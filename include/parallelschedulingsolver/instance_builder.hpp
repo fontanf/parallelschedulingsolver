@@ -52,6 +52,19 @@ public:
             JobId job_id,
             Time weight);
 
+    /**
+     * Set the setup time when job_id_2 is processed right after job_id_1 on a
+     * machine; job_id_1 = -1 for the setup time when job_id_2 is the first
+     * job of the machine.
+     *
+     * The setup times that are not set are 0.
+     */
+    void set_setup_time(
+            MachineId machine_id,
+            JobId job_id_1,
+            JobId job_id_2,
+            Time setup_time);
+
     /*
      * Build
      */
@@ -74,12 +87,34 @@ private:
      */
     void read_tanaka2008(std::ifstream& file);
 
+    /**
+     * Read an instance from a file in the format of the 1 | s_ij | sum w_j T_j
+     * instances of Cicirello (2003).
+     */
+    void read_cicirello2003(std::ifstream& file);
+
+    /**
+     * Read an instance from a file in the format of the R | s_ijk | C_max
+     * instances of Vallada and Ruiz (2011).
+     */
+    void read_vallada2011(std::ifstream& file);
+
     /*
      * Private attributes
      */
 
     /** Instance. */
     Instance instance_;
+
+    /** Setup times set with set_setup_time. */
+    struct SetupTime
+    {
+        MachineId machine_id;
+        JobId job_id_1;
+        JobId job_id_2;
+        Time setup_time;
+    };
+    std::vector<SetupTime> setup_times_;
 
 };
 

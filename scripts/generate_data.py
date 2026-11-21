@@ -7,6 +7,16 @@ of one objective and one family:
 * identical: identical parallel machines
 * identical_equal_processing_times: identical parallel machines, p_j = p
 * unrelated: unrelated parallel machines
+* single_setup_times: single machine with sequence-dependent setup times
+* single_release_dates_setup_times: single machine with release dates and
+  sequence-dependent setup times
+* identical_setup_times: identical parallel machines with sequence-dependent
+  setup times, the same on all machines
+* unrelated_setup_times: unrelated parallel machines with machine- and
+  sequence-dependent setup times
+
+The setup times, including the setup times of the first job of each machine,
+are drawn in [0, 20], for processing times in [1, 100].
 
 Due dates are generated with the tardiness factor / range of due dates scheme
 of Potts and Van Wassenhove (1985), so they don't depend on the processing
@@ -37,6 +47,10 @@ families = [
         ("identical", [2, 3, 4, 5], "  --identical-machines 1"),
         ("identical_equal_processing_times", [2, 3, 4, 5], "  --equal-processing-times 1"),
         ("unrelated", [2, 3, 4, 5], ""),
+        ("single_setup_times", [1], "  --setup-times-range 20"),
+        ("single_release_dates_setup_times", [1], "  --release-dates-factor 0.5  --setup-times-range 20"),
+        ("identical_setup_times", [2, 3, 4, 5], "  --identical-machines 1  --setup-times-range 20"),
+        ("unrelated_setup_times", [2, 3, 4, 5], "  --setup-times-range 20"),
 ]
 
 instances_paths = {}

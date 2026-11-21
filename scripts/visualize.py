@@ -39,6 +39,21 @@ def plot_schedule(data, save_path=None):
                 job_colors[job_id] = color_list[len(job_colors) % len(color_list)]
             job_color = job_colors[job_id]
 
+            # Draw the setup, right before the job.
+            setup = job_entry.get("setup", 0)
+            if setup > 0:
+                ax.barh(
+                    y=machine_center_y,
+                    width=setup,
+                    left=start - setup,
+                    height=machine_height * 0.5,
+                    align='center',
+                    edgecolor='black',
+                    linewidth=0.5,
+                    color='lightgrey',
+                    hatch='///'
+                )
+
             # Draw job bar
             ax.barh(
                 y=machine_center_y,

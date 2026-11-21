@@ -37,7 +37,8 @@ The families are:
 * `single_release_dates`: one machine, with release dates;
 * `identical`: identical parallel machines;
 * `identical_equal_processing_times`: identical parallel machines, all the jobs with the same processing time;
-* `unrelated`: unrelated parallel machines.
+* `unrelated`: unrelated parallel machines;
+* `single_setup_times`, `single_release_dates_setup_times`, `identical_setup_times`, `unrelated_setup_times`: the same with sequence-dependent setup times, including the setup times of the first job of each machine, drawn in $[0, 20]$ for processing times in $[1, 100]$ (the same on all the machines for `identical_setup_times`).
 
 Due dates follow the tardiness factor / range of due dates scheme of Potts and Van Wassenhove (1985), so they don't depend on the processing times.
 
@@ -123,7 +124,7 @@ For example, `test/algorithms/local_search_test.cpp` checks that the local searc
 ## Reference values
 
 The optimal values of the `.txt` files are computed by `scripts/solve_test_data.py`, never by the tested algorithm itself, with one of two methods:
-* brute force (`--criterion <criterion>`, or `--criterion objective` for the objective of each instance): all the sequences on one machine, and all the assignments with an optimal sequencing rule on parallel machines. Instances too large to enumerate are skipped. With `--criterion objective`, so are the instances whose objective brute force doesn't support on parallel machines (the total tardiness and the throughput); with an explicit criterion, the script fails on them.
+* brute force (`--criterion <criterion>`, or `--criterion objective` for the objective of each instance): all the sequences on one machine, and all the assignments with an optimal sequencing rule on parallel machines. With setup times, there is no such rule, so all the sequences of all the machines are enumerated, which also covers the total tardiness on parallel machines. Instances too large to enumerate are skipped. With `--criterion objective`, so are the instances whose objective brute force doesn't support on parallel machines (the total tardiness and the throughput); with an explicit criterion, the script fails on them.
 * an algorithm that proves optimality (`--algorithm <algorithm>`), on the special cases where it is exact. For example, `assignment-total-flow-time` is exact for $R \mid\mid \sum C_j$ in polynomial time, so it gives the optimal values of instances too large for brute force, to test other algorithms on the same problem. Only the instances on which the algorithm reports `"Optimal": true` are written.
 
 The tests must stay fast: the instances of the tests of an exact algorithm whose running time grows quickly with the size of the instances should be solved in less than 1 s. `--keep-if-solved-by <algorithm>` only keeps the instances on which this algorithm proves the brute force value within `--time-limit`, for each set of arguments given with `--keep-if-solved-with`. The script fails if the algorithm proves a value different from the reference.
@@ -155,7 +156,7 @@ python3 scripts/solve_test_data.py --criterion total-flow-time --output test/alg
 python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/milp_time_indexed_test.txt \
     --keep-if-solved-by milp-time-indexed --time-limit 0.5 \
     "--keep-if-solved-with=--normal-instants 1" "--keep-if-solved-with=--normal-instants 0" \
-    --instances data/test_*.txt
+    --instances data/test_*_{single,single_release_dates,identical,identical_equal_processing_times,unrelated}.txt
 python3 scripts/solve_test_data.py --criterion makespan --output test/algorithms/milp_assignment_makespan_test.txt --instances \
     data/test_makespan_single.txt \
     data/test_makespan_single_release_dates.txt \
@@ -169,9 +170,11 @@ python3 scripts/solve_test_data.py --criterion maximum-lateness --output test/al
     data/test_tt_unrelated.txt
 python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/milp_positional_test.txt \
     --keep-if-solved-by milp-positional --time-limit 0.5 \
-    --instances data/test_*.txt
+    --instances data/test_*_{single,single_release_dates,identical,identical_equal_processing_times,unrelated}.txt
 python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/local_search_test.txt --instances \
-    data/test_tft_*.txt data/test_twft_*.txt data/test_tt_*.txt data/test_twt_*.txt
+    data/test_{tft,twft,tt,twt}_{single,single_release_dates,identical,identical_equal_processing_times,unrelated}.txt
+python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/local_search_setup_times_test.txt --instances \
+    data/test_{tft,twft,tt,twt}_*setup_times.txt
 python3 scripts/solve_test_data.py --algorithm milp-time-indexed --time-limit 10 --output test/algorithms/local_search_parallel_tardiness_test.txt --instances \
     data/test_tt_identical.txt \
     data/test_tt_identical_equal_processing_times.txt \

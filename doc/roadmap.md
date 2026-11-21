@@ -10,7 +10,7 @@ Status: **planned**, **in progress** or **done** (with the `--algorithm` option)
 * **Done**: assignment MILP, `--algorithm milp-assignment`. Makespan with release dates and maximum lateness, on single, identical and unrelated machines. See [`milp_assignment.md`](milp_assignment.md).
 * **Done**: positional MILP, `--algorithm milp-positional`. All the objectives of the repository on single, identical and unrelated machines, with release dates; its size doesn't depend on the processing times. See [`milp_positional.md`](milp_positional.md).
 * **Done** (`--algorithm local-search`, see [`local_search.md`](local_search.md)): A. Kramer and A. Subramanian (2019). A unified heuristic and an annotated bibliography for a large class of earliness–tardiness scheduling problems. *Journal of Scheduling*, 22, 21–57. [doi:10.1007/s10951-017-0549-6](https://doi.org/10.1007/s10951-017-0549-6)
-  * Done: local search (UILS) for $\sum w_j T_j$ and $\sum w_j C_j$, on single and parallel machines, with release dates. Results matching the paper on the $P \mid\mid \sum T_j$ instances of Tanaka and Araki (2008).
+  * Done: local search (UILS) for $\sum w_j T_j$ and $\sum w_j C_j$, on single and parallel machines, with release dates and sequence-dependent setup times. Results matching the paper on the $P \mid\mid \sum T_j$ instances of Tanaka and Araki (2008).
   * Planned: the amortized $O(1)$ move evaluations for parallel machines without release dates (Section 4.2.3); the moves are evaluated in $O(n)$ time.
   * Planned: replacing the multi-start by a population-based iterated local search, as in shopschedulingsolver.
   * Missing benchmarks: the $P \mid\mid \sum w_j T_j$ instances of Rodrigues et al. (2008) and the $R \mid\mid \sum w_j T_j$ instances of Şen and Bülbül (2015).
@@ -48,6 +48,21 @@ $P \mid\mid \sum w_j T_j$, $R \mid\mid \sum w_j T_j$ (exact)
 * **Suggested**: A. Pessoa, E. Uchoa, M. Poggi de Aragão and R. Rodrigues (2010). Exact algorithm over an arc-time-indexed formulation for parallel machine scheduling problems. *Mathematical Programming Computation*, 2, 259–290. [doi:10.1007/s12532-010-0019-z](https://doi.org/10.1007/s12532-010-0019-z)
 * **Suggested**: D. Oliveira and A. Pessoa (2020). An improved branch-cut-and-price algorithm for parallel machine scheduling problems. *INFORMS Journal on Computing*, 32(1), 90–100. [doi:10.1287/ijoc.2018.0854](https://doi.org/10.1287/ijoc.2018.0854)
   * Branch-cut-and-price over the arc-time-indexed formulation: the state-of-the-art exact method, but a large implementation effort.
+
+## Sequence-dependent setup times
+
+$1 \mid s_{ij} \mid \sum w_j T_j$ (exact)
+* **Suggested**: S. Tanaka and M. Araki (2013). An exact algorithm for the single-machine total weighted tardiness problem with sequence-dependent setup times. *Computers & Operations Research*, 40(1), 344–352. [doi:10.1016/j.cor.2012.07.004](https://doi.org/10.1016/j.cor.2012.07.004)
+  * Successive sublimation dynamic programming, which solves all the instances of Cicirello (2003).
+* Benchmark: the instances of Cicirello (2003), `single_twt_setup_times_cicirello2003`.
+
+$1 \mid s_{ij} \mid \sum w_j T_j$
+* **Suggested**: C.-J. Liao, H.-H. Tsou and K.-L. Huang (2012). Neighborhood search procedures for single machine tardiness scheduling with sequence-dependent setups. *Theoretical Computer Science*, 434, 45–52. [doi:10.1016/j.tcs.2012.01.043](https://doi.org/10.1016/j.tcs.2012.01.043)
+  * Amortized $O(1)$ move evaluations with setup times (Section 4.2.4 of Kramer and Subramanian, 2019).
+
+$R \mid s_{ijk} \mid C_{\max}$
+* **Suggested**: E. Vallada and R. Ruiz (2011). A genetic algorithm for the unrelated parallel machine scheduling problem with sequence dependent setup times. *European Journal of Operational Research*, 211(3), 612–622. [doi:10.1016/j.ejor.2011.01.011](https://doi.org/10.1016/j.ejor.2011.01.011)
+* Benchmark: the instances of Vallada and Ruiz (2011), `unrelated_makespan_setup_times_vallada2011`. No algorithm of the repository supports the makespan with setup times yet; the best known values of the large instances date from 2011 and have been improved since.
 
 ## Unrelated parallel machines
 

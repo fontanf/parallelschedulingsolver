@@ -16,6 +16,13 @@ Output parallelschedulingsolver::greedy_longest_processing_time(
     Output output(instance);
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Greedy, longest processing-time");
+
+    if (instance.has_setup_times()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "sequence-dependent setup times are not supported.");
+    }
+
     algorithm_formatter.print_header();
 
     // Sort jobs in decreasing order of processing time.

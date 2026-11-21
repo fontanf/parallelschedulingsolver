@@ -19,6 +19,11 @@ to the output file if the optimal value is found. Two methods:
   Single machine: all job sequences are enumerated (jobs are started as early
   as possible, which is dominant for the supported regular criteria).
 
+  With sequence-dependent setup times, the sequences of all the machines are
+  enumerated, as all the job orders split into one sequence per machine.
+  The setup of a job is performed right before it and may be performed before
+  its release date.
+
   Parallel machines: all job-to-machine assignments are enumerated, and the
   jobs of each machine are sequenced with a rule that is optimal for a fixed
   assignment:
@@ -63,16 +68,30 @@ CRITERIA = [
 MAXIMIZE = {"number-of-on-time-jobs", "throughput"}
 
 
-def sequence_values(jobs, sequence, machine_id=0):
+def setup_time(setup_times, machine_id, job_id_1, job_id_2):
+    """Setup time when job_id_2 follows job_id_1 (-1 for the first job)."""
+    if setup_times is None:
+        return 0
+    machine = setup_times[machine_id]
+    if job_id_1 == -1:
+        return machine.get("initial_setup_times", [0] * len(machine["setup_times"]))[job_id_2]
+    return machine["setup_times"][job_id_1][job_id_2]
+
+
+def sequence_values(jobs, sequence, machine_id=0, setup_times=None):
     """Compute the value of each criterion for a job sequence on a machine."""
     current_time = 0
     values = {criterion: 0 for criterion in CRITERIA}
     values["maximum-lateness"] = None
+    previous_job_id = -1
     for job_id in sequence:
         job = jobs[job_id]
         current_time = (
-                max(current_time, job["release_date"])
+                max(current_time
+                    + setup_time(setup_times, machine_id, previous_job_id, job_id),
+                    job["release_date"])
                 + job["processing_times"][machine_id])
+        previous_job_id = job_id
         values["makespan"] = current_time
         values["total-flow-time"] += (
                 job["weight"] * (current_time - job["release_date"]))
@@ -98,14 +117,54 @@ def better(criterion, value_1, value_2):
     return value_1 < value_2
 
 
-def solve_single_machine(jobs, criterion, maximum_size):
+def solve_single_machine(jobs, criterion, maximum_size, setup_times=None):
     if math.factorial(len(jobs)) > maximum_size:
         return None
     best = None
     for sequence in itertools.permutations(range(len(jobs))):
-        value = sequence_values(jobs, sequence)[criterion]
+        value = sequence_values(jobs, sequence, 0, setup_times)[criterion]
         if better(criterion, value, best):
             best = value
+    return best
+
+
+def combine(criterion, machine_values):
+    """Value of a solution from the values of its machines."""
+    if criterion == "makespan":
+        return max(machine_values)
+    if criterion == "maximum-lateness":
+        machine_values = [v for v in machine_values if v is not None]
+        return max(machine_values) if machine_values else None
+    return sum(machine_values)
+
+
+def solve_parallel_machines_setup_times(
+        jobs, number_of_machines, setup_times, criterion, maximum_size):
+    """Enumerate the sequences of all the machines: each job order, split
+    into number_of_machines consecutive (possibly empty) sequences."""
+    n = len(jobs)
+    number_of_splits = math.comb(n + number_of_machines - 1, number_of_machines - 1)
+    if math.factorial(n) * number_of_splits > maximum_size:
+        return None
+    best = None
+    for order in itertools.permutations(range(n)):
+        # Positions of the number_of_machines - 1 separators.
+        for separators in itertools.combinations(
+                range(n + number_of_machines - 1),
+                number_of_machines - 1):
+            machine_values = []
+            start = 0
+            previous = -1
+            for machine_id, separator in enumerate(list(separators) + [n + number_of_machines - 1]):
+                length = separator - previous - 1
+                sequence = order[start:start + length]
+                start += length
+                previous = separator
+                machine_values.append(sequence_values(
+                    jobs, sequence, machine_id, setup_times)[criterion])
+            value = combine(criterion, machine_values)
+            if better(criterion, value, best):
+                best = value
     return best
 
 
@@ -150,13 +209,7 @@ def solve_parallel_machines(jobs, number_of_machines, criterion, maximum_size):
                     key=lambda job_id: sort_key(job_id, machine_id))
             machine_values.append(
                     sequence_values(jobs, sequence, machine_id)[criterion])
-        if criterion == "makespan":
-            value = max(machine_values)
-        elif criterion == "maximum-lateness":
-            machine_values = [v for v in machine_values if v is not None]
-            value = max(machine_values) if machine_values else None
-        else:
-            value = sum(machine_values)
+        value = combine(criterion, machine_values)
         if better(criterion, value, best):
             best = value
     return best
@@ -253,9 +306,21 @@ with open(args.output, 'w') as output_file:
                         job.setdefault("release_date", 0)
                         job.setdefault("weight", 1)
                     number_of_machines = instance["number_of_machines"]
+                    setup_times = instance.get("machines")
+                    if setup_times is not None and not any(
+                            "setup_times" in machine for machine in setup_times):
+                        setup_times = None
                     if number_of_machines == 1:
                         value = solve_single_machine(
                                 jobs,
+                                criterion,
+                                args.maximum_size,
+                                setup_times)
+                    elif setup_times is not None:
+                        value = solve_parallel_machines_setup_times(
+                                jobs,
+                                number_of_machines,
+                                setup_times,
                                 criterion,
                                 args.maximum_size)
                     else:

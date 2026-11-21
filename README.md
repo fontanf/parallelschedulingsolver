@@ -30,6 +30,17 @@ Run:
 ./install/bin/parallelschedulingsolver  --verbosity-level 1  --input ./data/tests/total_flow_time_unrelated/tft_n3x3_s0.json  --algorithm assignment-total-flow-time  --certificate solution.json
 ```
 
+Instances are JSON files: the objective, the number of machines, and for each job its processing time on each machine, its release date, due date and weight. Sequence-dependent setup times are given per machine (they are 0 if absent):
+```json
+"machines": [
+    {
+        "initial_setup_times": [2, 0],
+        "setup_times": [[0, 5], [7, 0]]
+    }
+]
+```
+`setup_times[i][j]` is the setup time when job `j` is processed right after job `i` on the machine, and `initial_setup_times[j]` the setup time when `j` is its first job. The setup of a job is performed right before it, and may be performed before its release date. The algorithms that don't support setup times throw an exception on instances with setup times.
+
 Visualize solution:
 ```shell
 python scripts/visualize.py solution.json
@@ -42,6 +53,8 @@ The benchmark instances are listed in the CSV files `data/data_<problem>.csv`, w
 | Benchmark | Problem | Instances | CSV file |
 | --- | --- | --- | --- |
 | `identical_tt_tanaka2008` | $P \mid\mid \sum T_j$ | 2,250 instances of Tanaka and Araki (2008), with their optimal values | `data/data_identical_tt.csv` |
+| `single_twt_setup_times_cicirello2003` | $1 \mid s_{ij} \mid \sum w_j T_j$ | 120 instances of Cicirello (2003), with the optimal values of Tanaka and Araki (2013) | `data/data_single_twt_setup_times.csv` |
+| `unrelated_makespan_setup_times_vallada2011` | $R \mid s_{ijk} \mid C_{\max}$ | 640 small and 1,000 large instances of Vallada and Ruiz (2011), with the optimal values of the small instances and the best known values of the large instances given by the authors | `data/data_unrelated_makespan_setup_times.csv` |
 
 Run an algorithm on a benchmark (the results are written in `benchmark_results/<benchmark>/<name>/`):
 ```shell
@@ -304,6 +317,18 @@ $R_m \mid \mid \sum w_j U_j$
 $R_m \mid r_j \mid \sum w_j U_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+
+### Sequence-dependent setup times
+
+#### Objective total flow time
+
+$1 \mid s_{ij} \mid \sum w_j C_j$, $P \mid s_{ij} \mid \sum w_j C_j$, $R \mid s_{ijk} \mid \sum w_j C_j$, with or without release dates
+* [Local search](doc/local_search.md) `--algorithm local-search`
+
+#### Objective total tardiness
+
+$1 \mid s_{ij} \mid \sum w_j T_j$, $P \mid s_{ij} \mid \sum w_j T_j$, $R \mid s_{ijk} \mid \sum w_j T_j$, with or without release dates
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 ## Tests
 

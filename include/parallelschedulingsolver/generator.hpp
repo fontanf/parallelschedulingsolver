@@ -32,6 +32,14 @@ struct GenerateInput
     Time weights_range = 1;
 
     /**
+     * Sequence-dependent setup times, including the setup times of the first
+     * job of each machine, are drawn in [0, setup_times_range]. With identical
+     * machines, the setup times are the same on all machines. With 0, there
+     * are no setup times.
+     */
+    Time setup_times_range = 0;
+
+    /**
      * Release dates are drawn in [0, release_dates_factor * P], where P is the
      * sum of the mean processing times of the jobs divided by the number of
      * machines. With 0, all release dates are 0.

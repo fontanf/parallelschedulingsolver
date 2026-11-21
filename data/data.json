@@ -7,6 +7,14 @@
             "directories": [
                 "tests"
             ]
+        },
+        {
+            "name": "tanaka2008",
+            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-tanaka2008-v1/tanaka2008.tar.xz",
+            "sha256": "6443a147c2688b97d1579969d098b6396fa2653f25f33bbf6101d039ca8c2771",
+            "directories": [
+                "tanaka2008"
+            ]
         }
     ]
 }

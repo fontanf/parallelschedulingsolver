@@ -15,6 +15,7 @@ using MachineId = int64_t;
 using JobId = int64_t;
 using Time = int64_t;
 using Seed = int64_t;
+using Counter = int64_t;
 
 enum class Objective
 {

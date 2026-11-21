@@ -1,5 +1,7 @@
 #include "parallelschedulingsolver/instance_builder.hpp"
 
+#include <sstream>
+
 using namespace parallelschedulingsolver;
 
 void InstanceBuilder::set_number_of_machines(MachineId number_of_machines)
@@ -127,6 +129,8 @@ void InstanceBuilder::read(
     }
     if (format == "" || format == "json") {
         read_json(file);
+    } else if (format == "tanaka2008") {
+        read_tanaka2008(file);
     } else {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -178,4 +182,64 @@ void InstanceBuilder::read_json(std::ifstream& file)
 Instance InstanceBuilder::build()
 {
     return std::move(instance_);
+}
+
+void InstanceBuilder::read_tanaka2008(std::ifstream& file)
+{
+    // Instances of P || sum T_j of Tanaka and Araki (2008):
+    //
+    //     # comment lines
+    //     n  m
+    //     # comment line
+    //     job processing_time due_date   (n lines, jobs numbered from 1)
+    //
+    // The lines starting with '#' are comments.
+    auto next_line = [&file](std::string& line)
+    {
+        while (std::getline(file, line)) {
+            std::size_t pos = line.find_first_not_of(" \t\r");
+            if (pos != std::string::npos && line[pos] != '#')
+                return true;
+        }
+        return false;
+    };
+    std::string line;
+    if (!next_line(line)) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "missing number of jobs and machines.");
+    }
+    JobId number_of_jobs = -1;
+    MachineId number_of_machines = -1;
+    std::istringstream(line) >> number_of_jobs >> number_of_machines;
+    if (number_of_jobs < 0 || number_of_machines <= 0) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "wrong number of jobs or machines.");
+    }
+    set_objective(Objective::TotalTardiness);
+    set_number_of_machines(number_of_machines);
+    for (JobId job_pos = 0; job_pos < number_of_jobs; ++job_pos) {
+        if (!next_line(line)) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "missing job " + std::to_string(job_pos + 1) + ".");
+        }
+        JobId job_number = -1;
+        Time processing_time = -1;
+        Time due_date = -1;
+        std::istringstream(line) >> job_number >> processing_time >> due_date;
+        if (processing_time < 0 || due_date < 0) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "wrong job " + std::to_string(job_pos + 1) + ".");
+        }
+        JobId job_id = add_job();
+        for (MachineId machine_id = 0;
+                machine_id < number_of_machines;
+                ++machine_id) {
+            set_job_processing_time(job_id, machine_id, processing_time);
+        }
+        set_job_due_date(job_id, due_date);
+    }
 }

@@ -68,6 +68,12 @@ private:
     /** Read an instance from a file in 'json' format. */
     void read_json(std::ifstream& file);
 
+    /**
+     * Read an instance from a file in the format of the P || sum T_j
+     * instances of Tanaka and Araki (2008).
+     */
+    void read_tanaka2008(std::ifstream& file);
+
     /*
      * Private attributes
      */

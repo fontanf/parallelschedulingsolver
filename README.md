@@ -35,6 +35,24 @@ Visualize solution:
 python scripts/visualize.py solution.json
 ```
 
+## Benchmarks
+
+The benchmark instances are listed in the CSV files `data/data_<problem>.csv`, with their format, the time limit, the best known solution value and bound, and the results reported in the literature. They are downloaded with `scripts/download_data.py` (for example `--archives tanaka2008`).
+
+| Benchmark | Problem | Instances | CSV file |
+| --- | --- | --- | --- |
+| `identical_tt_tanaka2008` | $P \mid\mid \sum T_j$ | 2,250 instances of Tanaka and Araki (2008), with their optimal values | `data/data_identical_tt.csv` |
+
+Run an algorithm on a benchmark (the results are written in `benchmark_results/<benchmark>/<name>/`):
+```shell
+python3 scripts/run_benchmarks.py identical_tt_tanaka2008 local-search --name local-search_seed0 --options "--seed 0"
+```
+
+Compare the runs with the reference values, per instance and per group of instances:
+```shell
+streamlit run scripts/process_benchmarks.py
+```
+
 ## Implemented algorithms
 
 The algorithms planned next, in particular state-of-the-art ones, are listed in [`doc/roadmap.md`](doc/roadmap.md).
@@ -63,19 +81,23 @@ $1 \mid \mid \sum C_j$
 * [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum C_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum w_j C_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 #### Objective total tardiness
 
@@ -84,19 +106,23 @@ $1 \mid \mid \sum T_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid \mid \sum w_j T_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum w_j T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 #### Objective maximum lateness
 
@@ -153,29 +179,35 @@ $P_m \mid \mid \sum C_j$
 * [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $P_m \mid r_j \mid \sum C_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $P_m \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` ($\frac{1 + \sqrt{2}}{2}$ approximation)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $P_m \mid r_j \mid \sum w_j C_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 #### Objective total tardiness
 
 $P_m \mid \mid \sum w_j T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $P_m \mid r_j \mid \sum w_j T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 #### Objective maximum lateness
 
@@ -221,29 +253,35 @@ $R_m \mid \mid \sum C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $R_m \mid r_j \mid \sum C_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $R_m \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $R_m \mid r_j \mid \sum w_j C_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 #### Objective total tardiness
 
 $R_m \mid \mid \sum w_j T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 $R_m \mid r_j \mid \sum w_j T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Local search](doc/local_search.md) `--algorithm local-search`
 
 #### Objective maximum lateness
 

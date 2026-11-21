@@ -55,6 +55,19 @@ gtest_discover_tests(ParallelSchedulingSolver_moore_hodgson_test
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     PROPERTIES TIMEOUT 3600)
 
+add_executable(ParallelSchedulingSolver_local_search_test)
+target_sources(ParallelSchedulingSolver_local_search_test PRIVATE
+    local_search_test.txt
+    local_search_parallel_tardiness_test.txt
+    local_search_test.cpp)
+target_link_libraries(ParallelSchedulingSolver_local_search_test
+    ParallelSchedulingSolver_tests
+    ParallelSchedulingSolver_local_search
+    GTest::gtest_main)
+gtest_discover_tests(ParallelSchedulingSolver_local_search_test
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    PROPERTIES TIMEOUT 3600)
+
 add_executable(ParallelSchedulingSolver_assignment_total_flow_time_test)
 target_sources(ParallelSchedulingSolver_assignment_total_flow_time_test PRIVATE
     assignment_total_flow_time_test.txt

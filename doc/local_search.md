@@ -6,9 +6,9 @@ Implementation of the unified iterated local search (UILS) of Kramer and Subrama
 
 ## Supported problems
 
-The total weighted tardiness ($\sum w_j T_j$) and the total weighted flow time ($\sum w_j (C_j - r_j)$, equivalent to $\sum w_j C_j$), on single, identical, uniform or unrelated machines, with or without release dates. The algorithm throws an exception on the other objectives.
+The total weighted tardiness ($\sum w_j T_j$) and the total weighted flow time ($\sum w_j (C_j - r_j)$, equivalent to $\sum w_j C_j$), on single, identical, uniform or unrelated machines, with or without release dates, with or without sequence-dependent setup times (machine-dependent on unrelated machines, $s_{ijk}$, with a setup time for the first job of each machine). The algorithm throws an exception on the other objectives.
 
-Kramer and Subramanian (2019) also consider earliness penalties and sequence-dependent setup times, which are not part of the problems of this repository.
+Kramer and Subramanian (2019) also consider earliness penalties, which are not part of the problems of this repository.
 
 ## Principle
 
@@ -71,7 +71,7 @@ The block sizes are the ones selected in the paper:
 
 ## Move evaluation
 
-The jobs of a machine start as early as possible, after the previous job and after their release date. Without earliness penalties, this is optimal for a given sequence, so the timing problem is trivial, even with release dates.
+The jobs of a machine start as early as possible, after the previous job and its setup, and after their release date. The setup of a job may be performed before its release date. Without earliness penalties, this is optimal for a given sequence, so the timing problem is trivial, even with release dates and setup times.
 
 For each machine, the algorithm stores the completion times and the objective of the first $k$ jobs, for each $k$. A move is evaluated by scheduling the modified part of the sequence, starting from the stored values at the first modified position, and then the rest of the sequence, with three shortcuts:
 
@@ -79,9 +79,11 @@ For each machine, the algorithm stores the completion times and the objective of
 * when it is larger, the objective of the rest is at least the one in the current solution (the objectives are regular), which gives a lower bound;
 * the evaluation stops as soon as the objective is not better than the best move found.
 
+With setup times, the setup of a job depends on the job before it, so the first two shortcuts only apply at a position when the previous job is the same as in the current solution: after the first job of the rest of the sequence, which is evaluated explicitly.
+
 For the forward insertions within a machine, the jobs skipped by the block are scheduled incrementally, as in Algorithm 3 of the paper.
 
-A move is thus evaluated in $O(n)$ time in the worst case, as in the "straightforward" evaluation of Section 4.2.2 of the paper. The amortized $O(1)$ evaluations of Section 4.2.3 (extending Ergun and Orlin, 2006), with piecewise linear cost functions, are not implemented: according to the paper, they speed up the algorithm by a factor up to 4 on instances with 100 to 200 jobs on few machines, and slow it down on instances with few jobs per machine.
+A move is thus evaluated in $O(n)$ time in the worst case, as in the "straightforward" evaluation of Section 4.2.2 of the paper, which the paper also uses with setup times. The amortized $O(1)$ evaluations of Sections 4.2.3 and 4.2.4 (extending Ergun and Orlin, 2006, and, with setup times, Liao et al., 2012), with piecewise linear cost functions, are not implemented: according to the paper, they speed up the algorithm by a factor up to 4 on instances with 100 to 200 jobs on few machines, and slow it down on instances with few jobs per machine.
 
 ## Details not given in the paper
 
@@ -130,6 +132,30 @@ On a few instances, this implementation is less reliable than the one of the pap
 
 The following variants of the details not given in the paper were tested (with a previous version of the multiple insertion perturbations, where the second job was chosen after the first move), without improving the results on the whole benchmark: accepting the solutions as good as the best solution of the restart, breaking the ties between the best moves of a neighborhood at random, 3 or 5 repetitions of the perturbations, and initial solutions built by list scheduling from a random order of the jobs. For example, with 3 repetitions and the acceptance of ties, 22,448 runs reach the optimal value (22,450 without), and 2 instances are never solved in 10 runs. The difference with the paper on these instances is thus not explained.
 
+### $1 \mid s_{ij} \mid \sum w_j T_j$: instances of Cicirello (2003)
+
+120 instances with 60 jobs, with the optimal values of Tanaka and Araki (2013) (benchmark `single_twt_setup_times_cicirello2003`). Kramer and Subramanian (2019) don't report results on these instances: they refer to the results of a simplified version of the algorithm (Subramanian et al., 2014), and say that UILS finds slightly better ones. The algorithm was run 10 times on each instance (seeds 0 to 9), with the default parameters and a time limit of 60 s. A run takes 13 s on average (4 runs in parallel); 8 runs out of 1,200 reach the time limit.
+
+* The best run is optimal on 98 of the 120 instances, and 692 runs out of 1,200 reach the optimal value. No run goes below the optimal value.
+* The instances with loose due dates (tardiness factor $\tau = 0.3$) are the hardest: on 17 of them, no run is optimal; the best run is 0.5 % to 13 % above the optimal value on 15 of them, 32 % on `wt_sds_24` (1,004 instead of 761), and 48 instead of 0 on `wt_sds_37`. On the 5 other instances never solved to optimality ($\tau = 0.6$ or $0.9$), the best run is less than 0.7 % above the optimal value.
+
+Per group of 10 instances ($\tau$: tardiness factor, $R$: due date range, $\eta$: setup time severity), the number of instances on which the best run is optimal, the number of runs reaching the optimal value, and the gap of the sum of the average values to the sum of the optimal values:
+
+| $\tau$ | $R$ | $\eta$ | Best run optimal | Runs optimal | Gap |
+| --- | --- | --- | --- | --- | --- |
+| 0.3 | 0.25 | 0.25 | 2 / 10 | 2 / 100 | 2.13 % |
+| 0.3 | 0.25 | 0.75 | 3 / 10 | 27 / 100 | 8.93 % |
+| 0.3 | 0.75 | 0.25 | 9 / 10 | 90 / 100 | 35.44 % (`wt_sds_24`) |
+| 0.3 | 0.75 | 0.75 | 9 / 10 | 90 / 100 | optimal values 0; average value 12.3 |
+| 0.6 | 0.25 | 0.25 | 9 / 10 | 36 / 100 | 0.22 % |
+| 0.6 | 0.25 | 0.75 | 7 / 10 | 19 / 100 | 0.90 % |
+| 0.6 | 0.75 | 0.25 | 10 / 10 | 92 / 100 | 0.00 % |
+| 0.6 | 0.75 | 0.75 | 10 / 10 | 57 / 100 | 0.50 % |
+| 0.9 | 0.25 | 0.25 | 9 / 10 | 67 / 100 | 0.01 % |
+| 0.9 | 0.25 | 0.75 | 10 / 10 | 44 / 100 | 0.14 % |
+| 0.9 | 0.75 | 0.25 | 10 / 10 | 89 / 100 | 0.01 % |
+| 0.9 | 0.75 | 0.75 | 10 / 10 | 79 / 100 | 0.04 % |
+
 ### Other benchmarks of the paper
 
 The instances of the other problems of the paper that are in the scope of this repository are not available any more at the addresses given in the paper:
@@ -139,7 +165,7 @@ The instances of the other problems of the paper that are in the scope of this r
 
 ## Tests
 
-* `test/algorithms/local_search_test.cpp`: the local search finds the optimal value of the total flow time and total tardiness test instances, with seed 0. The reference values come from brute force (`local_search_test.txt`) and, for the total tardiness on parallel machines, from the time-indexed MILP (`local_search_parallel_tardiness_test.txt`).
+* `test/algorithms/local_search_test.cpp`: the local search finds the optimal value of the total flow time and total tardiness test instances, with seed 0. The reference values come from brute force (`local_search_test.txt`, and `local_search_setup_times_test.txt` for the instances with setup times) and, for the total tardiness on parallel machines without setup times, from the time-indexed MILP (`local_search_parallel_tardiness_test.txt`).
 
 ## Source files
 
@@ -149,4 +175,7 @@ The instances of the other problems of the paper that are in the scope of this r
 
 * A. Kramer and A. Subramanian (2019). A unified heuristic and an annotated bibliography for a large class of earliness–tardiness scheduling problems. *Journal of Scheduling*, 22, 21–57. [doi:10.1007/s10951-017-0549-6](https://doi.org/10.1007/s10951-017-0549-6)
 * S. Tanaka and M. Araki (2008). A branch-and-bound algorithm with Lagrangian relaxation to minimize total tardiness on identical parallel machines. *International Journal of Production Economics*, 113(1), 446–458. [doi:10.1016/j.ijpe.2007.10.006](https://doi.org/10.1016/j.ijpe.2007.10.006)
+* V. A. Cicirello (2003). Weighted tardiness scheduling with sequence-dependent setups: a benchmark library. Technical report, Intelligent Coordination and Logistics Laboratory, Robotics Institute, Carnegie Mellon University.
+* S. Tanaka and M. Araki (2013). An exact algorithm for the single-machine total weighted tardiness problem with sequence-dependent setup times. *Computers & Operations Research*, 40(1), 344–352. [doi:10.1016/j.cor.2012.07.004](https://doi.org/10.1016/j.cor.2012.07.004)
+* C.-J. Liao, H.-H. Tsou and K.-L. Huang (2012). Neighborhood search procedures for single machine tardiness scheduling with sequence-dependent setups. *Theoretical Computer Science*, 434, 45–52. [doi:10.1016/j.tcs.2012.01.043](https://doi.org/10.1016/j.tcs.2012.01.043)
 * Ö. Ergun and J. B. Orlin (2006). Fast neighborhood search for the single machine total weighted tardiness problem. *Operations Research Letters*, 34(1), 41–45. [doi:10.1016/j.orl.2005.01.010](https://doi.org/10.1016/j.orl.2005.01.010)

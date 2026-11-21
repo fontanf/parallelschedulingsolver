@@ -61,6 +61,13 @@ Output parallelschedulingsolver::moore_hodgson(
     Output output(instance);
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Moore-Hodgson");
+
+    if (instance.has_setup_times()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "sequence-dependent setup times are not supported.");
+    }
+
     algorithm_formatter.print_header();
 
     MachineId machine_id = 0;

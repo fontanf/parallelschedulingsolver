@@ -85,6 +85,13 @@ Output parallelschedulingsolver::assignment_total_flow_time(
     Output output(instance);
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Assignment, total flow time");
+
+    if (instance.has_setup_times()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "sequence-dependent setup times are not supported.");
+    }
+
     algorithm_formatter.print_header();
 
     JobId n = instance.number_of_jobs();

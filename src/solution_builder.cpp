@@ -49,6 +49,31 @@ Solution SolutionBuilder::build()
                         "job_id: " + std::to_string(job_id) + ".");
             }
 
+            // Check the start time: after the release date of the job, and
+            // after the previous job of the machine and the setup.
+            JobId previous_job_id = (job_pos == 0)? -1: machine_schedule.jobs[job_pos - 1].job_id;
+            Time previous_completion = (job_pos == 0)? 0: machine_schedule.jobs[job_pos - 1].completion;
+            scheduled_job.setup = instance.setup_time(machine_id, previous_job_id, job_id);
+            if (scheduled_job.start < job.release_date) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "job starts before its release date; "
+                        "job_id: " + std::to_string(job_id) + "; "
+                        "start: " + std::to_string(scheduled_job.start) + "; "
+                        "release_date: " + std::to_string(job.release_date) + ".");
+            }
+            if (scheduled_job.start < previous_completion + scheduled_job.setup) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "job starts before the end of the previous job and of its setup; "
+                        "machine_id: " + std::to_string(machine_id) + "; "
+                        "job_pos: " + std::to_string(job_pos) + "; "
+                        "job_id: " + std::to_string(job_id) + "; "
+                        "start: " + std::to_string(scheduled_job.start) + "; "
+                        "previous completion: " + std::to_string(previous_completion) + "; "
+                        "setup: " + std::to_string(scheduled_job.setup) + ".");
+            }
+
             // Compute completion time.
             scheduled_job.completion = scheduled_job.start + job.processing_times[machine_id];
 

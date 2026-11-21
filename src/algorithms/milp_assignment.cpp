@@ -210,6 +210,12 @@ Output parallelschedulingsolver::milp_assignment(
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Assignment MILP");
 
+    if (instance.has_setup_times()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "sequence-dependent setup times are not supported.");
+    }
+
     if (instance.objective() != Objective::Makespan
             && instance.objective() != Objective::MaximumLateness) {
         throw std::invalid_argument(

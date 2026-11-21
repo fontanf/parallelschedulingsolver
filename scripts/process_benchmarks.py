@@ -34,6 +34,8 @@ bkb_field = "Best known bound"
 # summary.
 GROUP_COLUMNS = {
     "identical_tt_tanaka2008": ["Number of jobs", "Number of machines"],
+    "single_twt_setup_times_cicirello2003": ["Tau", "R", "Eta"],
+    "unrelated_makespan_setup_times_vallada2011": ["Size", "Number of jobs", "Number of machines"],
 }
 
 

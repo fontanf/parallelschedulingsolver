@@ -24,6 +24,14 @@ BENCHMARKS = {
         "csv": "data_identical_tt.csv",
         "dataset": "tanaka2008",
     },
+    "single_twt_setup_times_cicirello2003": {
+        "csv": "data_single_twt_setup_times.csv",
+        "dataset": "cicirello2003",
+    },
+    "unrelated_makespan_setup_times_vallada2011": {
+        "csv": "data_unrelated_makespan_setup_times.csv",
+        "dataset": "vallada2011",
+    },
 }
 
 

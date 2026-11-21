@@ -2,8 +2,8 @@
     "archives": [
         {
             "name": "tests",
-            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-tests-v2/tests.tar.xz",
-            "sha256": "e65d04ccb32583c64126eea7d929a9ead84a1c3d3978cd2e8f10c015590804d4",
+            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-tests-v3/tests.tar.xz",
+            "sha256": "b26d0571982dfc2ec58116c60cdbdc57ce38940be1aff48dfc73cf567e54aeaf",
             "directories": [
                 "tests"
             ]
@@ -14,6 +14,22 @@
             "sha256": "6443a147c2688b97d1579969d098b6396fa2653f25f33bbf6101d039ca8c2771",
             "directories": [
                 "tanaka2008"
+            ]
+        },
+        {
+            "name": "cicirello2003",
+            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-cicirello2003-v1/cicirello2003.tar.xz",
+            "sha256": "8ddc1e53d1bd9d8227fca2defe0bb2b495791a3e278d420b2ddca51ee266aa84",
+            "directories": [
+                "cicirello2003"
+            ]
+        },
+        {
+            "name": "vallada2011",
+            "url": "https://github.com/fontanf/parallelschedulingsolver/releases/download/data-vallada2011-v1/vallada2011.tar.xz",
+            "sha256": "15482c20cc069200f35d44e97c3a5d25bc2802e925d29c3072600776128b39bf",
+            "directories": [
+                "vallada2011"
             ]
         }
     ]

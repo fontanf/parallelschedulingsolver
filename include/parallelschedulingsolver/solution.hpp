@@ -24,6 +24,12 @@ public:
         /** Start time. */
         Time start = 0;
 
+        /**
+         * Setup time performed right before the job, ending at or before its
+         * start time.
+         */
+        Time setup = 0;
+
         /** Completion time. */
         Time completion = 0;
     };

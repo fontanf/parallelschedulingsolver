@@ -47,5 +47,6 @@ INSTANTIATE_TEST_SUITE_P(
                 {
                     get_test_instance_paths(get_path({"test", "algorithms", "local_search_test.txt"})),
                     get_test_instance_paths(get_path({"test", "algorithms", "local_search_parallel_tardiness_test.txt"})),
+                    get_test_instance_paths(get_path({"test", "algorithms", "local_search_setup_times_test.txt"})),
                 })),
         exact_algorithm_test_name);

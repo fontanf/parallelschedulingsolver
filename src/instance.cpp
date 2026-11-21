@@ -91,8 +91,26 @@ void Instance::write(
             json["jobs"][job_id]["processing_times"][machine_id] = job.processing_times[machine_id];
         }
         json["jobs"][job_id]["release_date"] = job.release_date;
-        json["jobs"][job_id]["due_date"] = job.due_date;
+        // No due date: the field is omitted.
+        if (job.due_date >= 0)
+            json["jobs"][job_id]["due_date"] = job.due_date;
         json["jobs"][job_id]["weight"] = job.weight;
+    }
+    if (this->has_setup_times()) {
+        for (MachineId machine_id = 0;
+                machine_id < this->number_of_machines();
+                ++machine_id) {
+            for (JobId job_id_2 = 0; job_id_2 < this->number_of_jobs(); ++job_id_2) {
+                json["machines"][machine_id]["initial_setup_times"][job_id_2]
+                    = this->setup_time(machine_id, -1, job_id_2);
+            }
+            for (JobId job_id_1 = 0; job_id_1 < this->number_of_jobs(); ++job_id_1) {
+                for (JobId job_id_2 = 0; job_id_2 < this->number_of_jobs(); ++job_id_2) {
+                    json["machines"][machine_id]["setup_times"][job_id_1][job_id_2]
+                        = this->setup_time(machine_id, job_id_1, job_id_2);
+                }
+            }
+        }
     }
 
     file << std::setw(4) << json << std::endl;
@@ -107,6 +125,7 @@ std::ostream& Instance::format(
             << "Number of jobs:              " << this->number_of_jobs() << std::endl
             << "Number of machines:          " << this->number_of_machines() << std::endl
             << "Objective:                   " << this->objective() << std::endl
+            << "Setup times:                 " << this->has_setup_times() << std::endl
             ;
     }
 

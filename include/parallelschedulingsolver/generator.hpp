@@ -55,6 +55,13 @@ struct GenerateInput
     double tardiness_factor = 0.5;
 
     double due_dates_range = 0.6;
+
+    /**
+     * Rejection costs are drawn in [0, rejection_costs_range], after all the
+     * other values, so that the other values don't depend on it. With 0, the
+     * jobs can't be rejected.
+     */
+    Time rejection_costs_range = 0;
 };
 
 /**

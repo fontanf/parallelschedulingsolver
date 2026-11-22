@@ -30,6 +30,21 @@ Instance setup_times_instance()
     return instance_builder.build();
 }
 
+// Three jobs on one machine, jobs 0 and 2 with a rejection cost.
+Instance rejection_costs_instance()
+{
+    InstanceBuilder instance_builder;
+    instance_builder.set_objective(Objective::TotalFlowTime);
+    instance_builder.set_number_of_machines(1);
+    for (JobId job_id = 0; job_id < 3; ++job_id) {
+        instance_builder.add_job();
+        instance_builder.set_job_processing_time(job_id, 0, 2);
+    }
+    instance_builder.set_job_rejection_cost(0, 7);
+    instance_builder.set_job_rejection_cost(2, 0);
+    return instance_builder.build();
+}
+
 // Write a file and read it as an instance.
 Instance read_instance(
         const std::string& content,
@@ -100,6 +115,89 @@ TEST(Instance, SetupTimesJson)
                 EXPECT_EQ(
                         instance_read.setup_time(machine_id, job_id_1, job_id_2),
                         instance.setup_time(machine_id, job_id_1, job_id_2));
+}
+
+TEST(Instance, RejectionCosts)
+{
+    Instance instance = rejection_costs_instance();
+    EXPECT_TRUE(instance.has_rejection_costs());
+    EXPECT_EQ(instance.job(0).rejection_cost, 7);
+    EXPECT_EQ(instance.job(1).rejection_cost, -1);
+    EXPECT_EQ(instance.job(2).rejection_cost, 0);
+    EXPECT_FALSE(setup_times_instance().has_rejection_costs());
+}
+
+TEST(Instance, InvalidRejectionCost)
+{
+    InstanceBuilder instance_builder;
+    instance_builder.set_number_of_machines(1);
+    instance_builder.add_job();
+    EXPECT_THROW(instance_builder.set_job_rejection_cost(0, -2), std::invalid_argument);
+}
+
+TEST(Instance, RejectionCostsUnsupportedObjective)
+{
+    for (Objective objective: {Objective::MaximumLateness, Objective::Throughput}) {
+        InstanceBuilder instance_builder;
+        instance_builder.set_objective(objective);
+        instance_builder.set_number_of_machines(1);
+        instance_builder.add_job();
+        instance_builder.set_job_processing_time(0, 0, 1);
+        instance_builder.set_job_due_date(0, 1);
+        instance_builder.set_job_rejection_cost(0, 1);
+        EXPECT_THROW(instance_builder.build(), std::invalid_argument);
+    }
+}
+
+TEST(Instance, RejectionCostsJson)
+{
+    Instance instance = rejection_costs_instance();
+    boost::filesystem::path path = boost::filesystem::temp_directory_path()
+        / boost::filesystem::unique_path("%%%%-%%%%-%%%%.json");
+    instance.write(path.string(), "json");
+    InstanceBuilder instance_builder;
+    instance_builder.read(path.string(), "json");
+    Instance instance_read = instance_builder.build();
+    boost::filesystem::remove(path);
+    EXPECT_TRUE(instance_read.has_rejection_costs());
+    for (JobId job_id = 0; job_id < 3; ++job_id)
+        EXPECT_EQ(instance_read.job(job_id).rejection_cost, instance.job(job_id).rejection_cost);
+}
+
+TEST(Solution, RejectedJobs)
+{
+    Instance instance = rejection_costs_instance();
+    // Job 1 alone: jobs 0 and 2 are rejected.
+    SolutionBuilder solution_builder;
+    solution_builder.set_instance(instance);
+    solution_builder.append_job_to_machine(0, 1, 0);
+    Solution solution = solution_builder.build();
+    EXPECT_TRUE(solution.feasible());
+    EXPECT_EQ(solution.number_of_rejected_jobs(), 2);
+    EXPECT_EQ(solution.total_rejection_cost(), 7);
+    EXPECT_EQ(solution.total_flow_time(), 2);
+    EXPECT_EQ(solution.objective_value(), 9);
+
+    // Jobs 1 and 0: job 2 is rejected at no cost.
+    SolutionBuilder solution_builder_2;
+    solution_builder_2.set_instance(instance);
+    solution_builder_2.append_job_to_machine(0, 1, 0);
+    solution_builder_2.append_job_to_machine(0, 0, 2);
+    Solution solution_2 = solution_builder_2.build();
+    EXPECT_EQ(solution_2.objective_value(), 2 + 4);
+    EXPECT_TRUE(solution_2.strictly_better(solution));
+    EXPECT_FALSE(solution.strictly_better(solution_2));
+}
+
+TEST(Solution, MandatoryJobMissing)
+{
+    // Job 1 can't be rejected.
+    Instance instance = rejection_costs_instance();
+    SolutionBuilder solution_builder;
+    solution_builder.set_instance(instance);
+    solution_builder.append_job_to_machine(0, 0, 0);
+    Solution solution = solution_builder.build();
+    EXPECT_FALSE(solution.feasible());
 }
 
 TEST(Solution, SetupTimes)

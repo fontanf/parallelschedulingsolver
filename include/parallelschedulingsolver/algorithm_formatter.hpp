@@ -28,6 +28,8 @@ struct Output: optimizationtools::Output
     /*
      * Bounds, initialized to trivial valid bounds. When the bound of the
      * objective equals the value of the solution, the solution is optimal.
+     * With rejection costs, the bounds of the makespan, the total flow time
+     * and the total tardiness include the total rejection cost.
      */
 
     /** Lower bound on the makespan. */

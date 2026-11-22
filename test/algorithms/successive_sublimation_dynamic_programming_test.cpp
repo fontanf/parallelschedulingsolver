@@ -84,6 +84,14 @@ TEST(SuccessiveSublimationDynamicProgramming, ZeroCostJobs)
     EXPECT_EQ(output.bound(), 2);
 }
 
+
+TEST(SuccessiveSublimationDynamicProgramming, RejectionCosts)
+{
+    SuccessiveSublimationDynamicProgrammingParameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(successive_sublimation_dynamic_programming(rejection_costs_instance(Objective::TotalTardiness), parameters), std::invalid_argument);
+}
+
 // Optimal values computed by brute force.
 INSTANTIATE_TEST_SUITE_P(
         SuccessiveSublimationDynamicProgramming,

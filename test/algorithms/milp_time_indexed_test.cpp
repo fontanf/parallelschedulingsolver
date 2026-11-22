@@ -18,6 +18,14 @@ Output milp_time_indexed_test(
 
 }
 
+
+TEST(MilpTimeIndexed, RejectionCosts)
+{
+    MilpTimeIndexedParameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(milp_time_indexed(rejection_costs_instance(Objective::TotalFlowTime), parameters), std::invalid_argument);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         MilpTimeIndexed,
         ScheduleTest,

@@ -11,11 +11,11 @@ double Solution::objective_value() const
     }
     switch (this->instance().objective()) {
     case Objective::Makespan:
-        return this->makespan();
+        return this->makespan() + this->total_rejection_cost();
     case Objective::TotalFlowTime:
-        return this->total_flow_time();
+        return this->total_flow_time() + this->total_rejection_cost();
     case Objective::TotalTardiness:
-        return this->total_tardiness();
+        return this->total_tardiness() + this->total_rejection_cost();
     case Objective::MaximumLateness:
         return this->maximum_lateness();
     case Objective::Throughput:
@@ -26,7 +26,7 @@ double Solution::objective_value() const
 
 bool Solution::feasible() const
 {
-    return (this->number_of_jobs_ == instance().number_of_jobs());
+    return (this->number_of_jobs_ + this->number_of_rejected_jobs_ == instance().number_of_jobs());
 }
 
 bool Solution::strictly_better(const Solution& solution) const
@@ -37,13 +37,16 @@ bool Solution::strictly_better(const Solution& solution) const
         return true;
     switch (solution.instance().objective()) {
     case Objective::Makespan: {
-        return this->makespan() < solution.makespan();
+        return this->makespan() + this->total_rejection_cost()
+            < solution.makespan() + solution.total_rejection_cost();
     } case Objective::TotalFlowTime: {
-        return this->total_flow_time() < solution.total_flow_time();
+        return this->total_flow_time() + this->total_rejection_cost()
+            < solution.total_flow_time() + solution.total_rejection_cost();
     } case Objective::Throughput: {
         return this->throughput() > solution.throughput();
     } case Objective::TotalTardiness: {
-        return this->total_tardiness() < solution.total_tardiness();
+        return this->total_tardiness() + this->total_rejection_cost()
+            < solution.total_tardiness() + solution.total_rejection_cost();
     } case Objective::MaximumLateness: {
         return this->maximum_lateness() < solution.maximum_lateness();
     }
@@ -93,6 +96,13 @@ void Solution::write(
             json["machines"][machine_id]["total_tardiness"] = machine_schedule.total_tardiness;
             json["machines"][machine_id]["maximum_lateness"] = machine_schedule.maximum_lateness;
         }
+        json["total_rejection_cost"] = this->total_rejection_cost();
+        for (JobId job_id = 0; job_id < this->instance().number_of_jobs(); ++job_id) {
+            if (!this->contains(job_id)
+                    && this->instance().job(job_id).rejection_cost >= 0) {
+                json["rejected_jobs"].push_back(job_id);
+            }
+        }
         file << json.dump(4);
     }
 }
@@ -106,6 +116,8 @@ nlohmann::json Solution::to_json() const
         {"Throughput", this->throughput()},
         {"TotalTardiness", this->total_tardiness()},
         {"MaximumLateness", this->maximum_lateness()},
+        {"NumberOfRejectedJobs", this->number_of_rejected_jobs()},
+        {"TotalRejectionCost", this->total_rejection_cost()},
     };
 }
 
@@ -122,6 +134,8 @@ void Solution::format(
             << "Throughput:                    " << this->throughput() << std::endl
             << "Total tardiness:               " << this->total_tardiness() << std::endl
             << "Maximum lateness:              " << this->maximum_lateness() << std::endl
+            << "Number of rejected jobs:       " << this->number_of_rejected_jobs() << std::endl
+            << "Total rejection cost:          " << this->total_rejection_cost() << std::endl
             ;
     }
 

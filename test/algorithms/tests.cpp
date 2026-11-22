@@ -107,8 +107,17 @@ Instance parallelschedulingsolver::build_instance(
         if (job.due_date >= 0)
             instance_builder.set_job_due_date(job_id, job.due_date);
         instance_builder.set_job_weight(job_id, job.weight);
+        instance_builder.set_job_rejection_cost(job_id, job.rejection_cost);
     }
     return instance_builder.build();
+}
+
+Instance parallelschedulingsolver::rejection_costs_instance(Objective objective)
+{
+    return build_instance(
+            objective,
+            1,
+            {{{2}, 0, 1, 1, 3}, {{1}, 0, 1}});
 }
 
 void parallelschedulingsolver::check_schedule(

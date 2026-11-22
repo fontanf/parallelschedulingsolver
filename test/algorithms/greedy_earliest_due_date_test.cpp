@@ -3,6 +3,14 @@
 
 using namespace parallelschedulingsolver;
 
+
+TEST(GreedyEarliestDueDate, RejectionCosts)
+{
+    Parameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(greedy_earliest_due_date(rejection_costs_instance(Objective::TotalTardiness), parameters), std::invalid_argument);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         GreedyEarliestDueDate,
         ScheduleTest,

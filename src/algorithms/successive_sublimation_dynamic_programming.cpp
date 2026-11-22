@@ -1169,6 +1169,12 @@ const SuccessiveSublimationDynamicProgrammingOutput parallelschedulingsolver::su
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Successive sublimation dynamic programming");
 
+    if (instance.has_rejection_costs()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "rejection costs are not supported.");
+    }
+
     if (instance.number_of_machines() != 1) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "

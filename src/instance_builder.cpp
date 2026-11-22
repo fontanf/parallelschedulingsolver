@@ -117,6 +117,26 @@ void InstanceBuilder::set_job_weight(
     instance_.jobs_[job_id].weight = weight;
 }
 
+void InstanceBuilder::set_job_rejection_cost(
+        JobId job_id,
+        Time rejection_cost)
+{
+    if (job_id < 0 || job_id >= (JobId)instance_.jobs_.size()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid 'job_id'; "
+                "job_id: " + std::to_string(job_id) + "; "
+                "instance_.jobs_.size(): " + std::to_string(instance_.jobs_.size()) + ".");
+    }
+    if (rejection_cost < -1) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "'rejection_cost' must be >= 0, or -1 if the job can't be rejected; "
+                "rejection_cost: " + std::to_string(rejection_cost) + ".");
+    }
+    instance_.jobs_[job_id].rejection_cost = rejection_cost;
+}
+
 void InstanceBuilder::set_setup_time(
         MachineId machine_id,
         JobId job_id_1,
@@ -217,6 +237,8 @@ void InstanceBuilder::read_json(std::ifstream& file)
             set_job_due_date(job_id, j["jobs"][job_id]["due_date"]);
         if (j["jobs"][job_id].contains("weight"))
             set_job_weight(job_id, j["jobs"][job_id]["weight"]);
+        if (j["jobs"][job_id].contains("rejection_cost"))
+            set_job_rejection_cost(job_id, j["jobs"][job_id]["rejection_cost"]);
     }
 
     // Setup times.
@@ -249,6 +271,21 @@ void InstanceBuilder::read_json(std::ifstream& file)
 
 Instance InstanceBuilder::build()
 {
+    // Rejection costs.
+    instance_.has_rejection_costs_ = false;
+    for (const Job& job: instance_.jobs_)
+        if (job.rejection_cost >= 0)
+            instance_.has_rejection_costs_ = true;
+    if (instance_.has_rejection_costs_
+            && instance_.objective_ != Objective::Makespan
+            && instance_.objective_ != Objective::TotalFlowTime
+            && instance_.objective_ != Objective::TotalTardiness) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "rejection costs are only supported with the makespan, "
+                "the total flow time and the total tardiness.");
+    }
+
     // Setup times.
     instance_.has_setup_times_ = false;
     JobId number_of_jobs = instance_.jobs_.size();

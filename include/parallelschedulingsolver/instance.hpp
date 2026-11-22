@@ -84,6 +84,12 @@ struct Job
 
     /** Weight. */
     Time weight = 1;
+
+    /**
+     * Rejection cost: the job may not be scheduled, and then its rejection
+     * cost is added to the objective; -1 if the job must be scheduled.
+     */
+    Time rejection_cost = -1;
 };
 
 /**
@@ -115,6 +121,9 @@ public:
 
     /** Return true if the instance has sequence-dependent setup times. */
     bool has_setup_times() const { return has_setup_times_; }
+
+    /** Return true if some jobs can be rejected (have a rejection cost). */
+    bool has_rejection_costs() const { return has_rejection_costs_; }
 
     /**
      * Get the setup time when job_id_2 is processed right after job_id_1 on a
@@ -172,6 +181,9 @@ private:
 
     /** True if the instance has sequence-dependent setup times. */
     bool has_setup_times_ = false;
+
+    /** True if some jobs can be rejected. */
+    bool has_rejection_costs_ = false;
 
     friend class InstanceBuilder;
 

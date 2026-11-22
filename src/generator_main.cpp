@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
         ("release-dates-factor,", po::value<double>(&input.release_dates_factor), "release dates in [0, factor * P]; 0: no release dates")
         ("tardiness-factor,", po::value<double>(&input.tardiness_factor), "tardiness factor TF of the due dates")
         ("due-dates-range,", po::value<double>(&input.due_dates_range), "relative range RDD of the due dates")
+        ("rejection-costs-range,", po::value<Time>(&input.rejection_costs_range), "rejection costs in [0, range]; 0: the jobs can't be rejected")
         ("seed,", po::value<Seed>(&seed), "set seed")
         ("output,", po::value<std::string>(&output_path)->required(), "set output path")
         ;

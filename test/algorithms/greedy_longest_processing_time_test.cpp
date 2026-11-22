@@ -3,6 +3,14 @@
 
 using namespace parallelschedulingsolver;
 
+
+TEST(GreedyLongestProcessingTime, RejectionCosts)
+{
+    Parameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(greedy_longest_processing_time(rejection_costs_instance(Objective::Makespan), parameters), std::invalid_argument);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         GreedyLongestProcessingTime,
         ScheduleTest,

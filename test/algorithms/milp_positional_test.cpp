@@ -15,6 +15,14 @@ Output milp_positional_test(const Instance& instance)
 
 }
 
+
+TEST(MilpPositional, RejectionCosts)
+{
+    MilpPositionalParameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(milp_positional(rejection_costs_instance(Objective::TotalFlowTime), parameters), std::invalid_argument);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         MilpPositional,
         ScheduleTest,

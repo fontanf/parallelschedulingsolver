@@ -119,3 +119,15 @@ if(PARALLELSCHEDULINGSOLVER_USE_HIGHS)
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
         PROPERTIES TIMEOUT 3600)
 endif()
+
+add_executable(ParallelSchedulingSolver_brute_force_test)
+target_sources(ParallelSchedulingSolver_brute_force_test PRIVATE
+    brute_force_test.txt
+    brute_force_test.cpp)
+target_link_libraries(ParallelSchedulingSolver_brute_force_test
+    ParallelSchedulingSolver_tests
+    ParallelSchedulingSolver_brute_force
+    GTest::gtest_main)
+gtest_discover_tests(ParallelSchedulingSolver_brute_force_test
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    PROPERTIES TIMEOUT 3600)

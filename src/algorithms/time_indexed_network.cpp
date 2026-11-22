@@ -1,9 +1,13 @@
-#include "ssdp_network.hpp"
+#include "parallelschedulingsolver/algorithms/time_indexed_network.hpp"
+
+#include "parallelschedulingsolver/solution_builder.hpp"
+
+#include "hungarian.hpp"
 
 #include <algorithm>
 
 using namespace parallelschedulingsolver;
-using namespace parallelschedulingsolver::ssdp;
+using namespace parallelschedulingsolver::time_indexed;
 
 Time Problem::sequence_cost(const std::vector<JobId>& sequence) const
 {
@@ -159,6 +163,7 @@ void Network::compute_forward_labels(const std::vector<double>& multipliers)
         }
     }
     labels_direction_ = Direction::Forward;
+    set_labels_up_to_date(Direction::Forward, multipliers);
 }
 
 void Network::compute_backward_labels(const std::vector<double>& multipliers)
@@ -221,6 +226,7 @@ void Network::compute_backward_labels(const std::vector<double>& multipliers)
         }
     }
     labels_direction_ = Direction::Backward;
+    set_labels_up_to_date(Direction::Backward, multipliers);
 }
 
 namespace
@@ -494,6 +500,9 @@ void Network::reduce(
             }
         }
     }
+    // The shortest paths may have been removed.
+    invalidate_labels();
+    cutoff_ = (std::min)(cutoff_, threshold);
     clean();
 }
 
@@ -515,6 +524,8 @@ void Network::restrict(
             states_[state_id].alive = false;
         }
     }
+    invalidate_labels();
+    restricted_ = true;
     clean();
 }
 
@@ -685,17 +696,20 @@ void Network::propagate_constraints()
             states_[state_id].alive = false;
         }
     }
-    if (removed)
+    if (removed) {
+        invalidate_labels();
         clean();
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////// Generation ///////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-Network Network::initial_network(const Problem& problem)
+Network Network::initial_network(const std::shared_ptr<const Problem>& problem_pointer)
 {
-    Network network(problem);
+    const Problem& problem = *problem_pointer;
+    Network network(problem_pointer);
     JobId n = problem.number_of_jobs;
     for (Time t = 0; t <= problem.maximum_makespan; ++t) {
         for (JobId job_id = 0; job_id < n; ++job_id) {
@@ -763,6 +777,9 @@ bool Network::generate(
     new_network.forward_labels_.clear();
     new_network.backward_labels_.clear();
     new_network.labels_direction_ = direction;
+    new_network.invalidate_labels();
+    new_network.restricted_ = restricted_;
+    new_network.cutoff_ = (std::min)(cutoff_, threshold);
     std::vector<State>& new_states = new_network.states_;
     std::vector<Labels>& new_forward_labels = new_network.forward_labels_;
     std::vector<Labels>& new_backward_labels = new_network.backward_labels_;
@@ -982,5 +999,188 @@ bool Network::generate(
     }
 
     new_network.clean();
+    new_network.set_labels_up_to_date(direction, multipliers);
     return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////// Problem /////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_problem(
+        const Instance& instance,
+        bool remove_zero_cost_jobs)
+{
+    if (instance.has_rejection_costs()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "rejection costs are not supported.");
+    }
+    if (instance.number_of_machines() != 1) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "only single machine instances are supported.");
+    }
+    if (instance.objective() != Objective::TotalTardiness
+            && instance.objective() != Objective::TotalFlowTime) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "only the total tardiness and the total flow time are supported.");
+    }
+    for (JobId job_id = 0; job_id < instance.number_of_jobs(); ++job_id) {
+        const Job& job = instance.job(job_id);
+        if (job.release_date != 0) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "release dates are not supported.");
+        }
+        if (job.processing_times[0] <= 0) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "processing times must be positive.");
+        }
+    }
+
+    auto problem_pointer = std::make_shared<Problem>();
+    Problem& problem = *problem_pointer;
+    JobId n = instance.number_of_jobs();
+    problem.tardiness = (instance.objective() == Objective::TotalTardiness);
+
+    auto zero_cost = [&instance, &problem](JobId job_id)
+    {
+        const Job& job = instance.job(job_id);
+        if (job.weight == 0)
+            return true;
+        return problem.tardiness && job.due_date < 0;
+    };
+
+    // Remove the zero cost jobs satisfying (40), one at a time.
+    std::vector<bool> removed(n, false);
+    for (bool changed = remove_zero_cost_jobs; changed;) {
+        changed = false;
+        for (JobId job_id = 0; job_id < n; ++job_id) {
+            if (removed[job_id] || !zero_cost(job_id))
+                continue;
+            Time p = instance.job(job_id).processing_times[0];
+            bool ok = true;
+            for (JobId job_id_1 = -1; job_id_1 < n && ok; ++job_id_1) {
+                if (job_id_1 == job_id || (job_id_1 >= 0 && removed[job_id_1]))
+                    continue;
+                for (JobId job_id_2 = 0; job_id_2 < n; ++job_id_2) {
+                    if (job_id_2 == job_id || job_id_2 == job_id_1 || removed[job_id_2])
+                        continue;
+                    if (instance.setup_time(0, job_id_1, job_id)
+                            + p
+                            + instance.setup_time(0, job_id, job_id_2)
+                            < instance.setup_time(0, job_id_1, job_id_2)) {
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+            if (ok) {
+                removed[job_id] = true;
+                problem.removed_job_ids.push_back(job_id);
+                changed = true;
+            }
+        }
+    }
+    // The last removed job is scheduled first among the removed jobs.
+    std::reverse(problem.removed_job_ids.begin(), problem.removed_job_ids.end());
+
+    for (JobId job_id = 0; job_id < n; ++job_id) {
+        if (removed[job_id])
+            continue;
+        const Job& job = instance.job(job_id);
+        problem.instance_job_ids.push_back(job_id);
+        problem.processing_times.push_back(job.processing_times[0]);
+        problem.weights.push_back(job.weight);
+        problem.due_dates.push_back(job.due_date);
+    }
+    JobId m = problem.instance_job_ids.size();
+    problem.number_of_jobs = m;
+    if (m > 127) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "at most 127 jobs are supported; "
+                "number of jobs: " + std::to_string(m) + ".");
+    }
+    problem.setup_times.assign((m + 1) * m, 0);
+    for (JobId job_id_1 = -1; job_id_1 < m; ++job_id_1) {
+        for (JobId job_id_2 = 0; job_id_2 < m; ++job_id_2) {
+            if (job_id_1 == job_id_2)
+                continue;
+            problem.setup_times[(job_id_1 + 1) * m + job_id_2] = instance.setup_time(
+                    0,
+                    (job_id_1 == -1)? -1: problem.instance_job_ids[job_id_1],
+                    problem.instance_job_ids[job_id_2]);
+        }
+    }
+    problem.extended_processing_times.resize(m);
+    for (JobId job_id = 0; job_id < m; ++job_id) {
+        Time setup_min = problem.setup_time(-1, job_id);
+        for (JobId job_id_1 = 0; job_id_1 < m; ++job_id_1)
+            if (job_id_1 != job_id)
+                setup_min = (std::min)(setup_min, problem.setup_time(job_id_1, job_id));
+        problem.extended_processing_times[job_id] = problem.processing_times[job_id] + setup_min;
+    }
+
+    // Bounds of the makespan from the assignment relaxation of the
+    // asymmetric traveling salesman problem, with a dummy node 0.
+    Time sum_of_processing_times = 0;
+    for (Time p: problem.processing_times)
+        sum_of_processing_times += p;
+    const Time forbidden = 1e15;
+    std::vector<std::vector<Time>> costs_min(m + 1, std::vector<Time>(m + 1, 0));
+    std::vector<std::vector<Time>> costs_max(m + 1, std::vector<Time>(m + 1, 0));
+    for (JobId a = 0; a <= m; ++a) {
+        for (JobId b = 0; b <= m; ++b) {
+            Time setup = 0;
+            if (a == b) {
+                costs_min[a][b] = forbidden;
+                costs_max[a][b] = forbidden;
+                continue;
+            }
+            if (b > 0)
+                setup = problem.setup_time(a - 1, b - 1);
+            costs_min[a][b] = setup;
+            costs_max[a][b] = -setup;
+        }
+    }
+    Time setups_min = 0;
+    Time setups_max = 0;
+    if (m > 0) {
+        std::vector<int64_t> assignment_min = hungarian(costs_min, m + 1, m + 1);
+        std::vector<int64_t> assignment_max = hungarian(costs_max, m + 1, m + 1);
+        for (JobId a = 0; a <= m; ++a) {
+            setups_min += costs_min[a][assignment_min[a]];
+            setups_max -= costs_max[a][assignment_max[a]];
+        }
+    }
+    problem.minimum_makespan = sum_of_processing_times + setups_min;
+    problem.maximum_makespan = sum_of_processing_times + setups_max;
+    return problem_pointer;
+}
+
+Solution parallelschedulingsolver::time_indexed::build_solution(
+        const Instance& instance,
+        const Problem& problem,
+        const std::vector<JobId>& sequence)
+{
+    SolutionBuilder solution_builder;
+    solution_builder.set_instance(instance);
+    Time t = 0;
+    JobId job_id_prev = -1;
+    auto append = [&](JobId job_id)
+    {
+        Time start = t + instance.setup_time(0, job_id_prev, job_id);
+        solution_builder.append_job_to_machine(0, job_id, start);
+        t = start + instance.job(job_id).processing_times[0];
+        job_id_prev = job_id;
+    };
+    for (JobId job_id: sequence)
+        append(problem.instance_job_ids[job_id]);
+    for (JobId job_id: problem.removed_job_ids)
+        append(job_id);
+    return solution_builder.build();
 }

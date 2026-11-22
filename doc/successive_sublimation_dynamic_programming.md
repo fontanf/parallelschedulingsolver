@@ -116,7 +116,7 @@ On these instances, the networks need interval branching, and the upper bounds o
 
 * `include/parallelschedulingsolver/algorithms/successive_sublimation_dynamic_programming.hpp`
 * `src/algorithms/successive_sublimation_dynamic_programming.cpp`: stages, upper bounds, branching.
-* `src/algorithms/ssdp_network.hpp`, `src/algorithms/ssdp_network.cpp`: network, dynamic programming, generation, reduction, constraint propagation.
+* The dynamic programming is the [time-indexed dynamic programming](dynamic_programming_time_indexed.md) algorithm (`src/algorithms/dynamic_programming_time_indexed.cpp`), called for each iteration of stage 1, each network generation of stage 2 and each child of the interval branching; network, generation, reduction and constraint propagation in `include/parallelschedulingsolver/algorithms/time_indexed_network.hpp` and `src/algorithms/time_indexed_network.cpp`.
 
 ## References
 

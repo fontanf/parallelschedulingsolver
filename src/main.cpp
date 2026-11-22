@@ -11,6 +11,7 @@
 #include "parallelschedulingsolver/algorithms/milp_positional.hpp"
 #include "parallelschedulingsolver/algorithms/brute_force.hpp"
 #include "parallelschedulingsolver/algorithms/successive_sublimation_dynamic_programming.hpp"
+#include "parallelschedulingsolver/algorithms/dynamic_programming_time_indexed.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -133,6 +134,17 @@ Output run(
             parameters.maximum_number_of_stage_1_iterations = vm["maximum-number-of-stage-1-iterations"].as<Counter>();
         return successive_sublimation_dynamic_programming(instance, parameters);
 
+    } else if (algorithm == "dynamic-programming-time-indexed") {
+        DynamicProgrammingTimeIndexedParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("all-jobs-in-modifiers"))
+            parameters.all_jobs_in_modifiers = vm["all-jobs-in-modifiers"].as<bool>();
+        if (vm.count("constraint-propagation"))
+            parameters.constraint_propagation = vm["constraint-propagation"].as<bool>();
+        if (vm.count("maximum-memory"))
+            parameters.maximum_memory = vm["maximum-memory"].as<double>();
+        return dynamic_programming_time_indexed(instance, parameters);
+
     } else if (algorithm == "local-search") {
         LocalSearchParameters parameters;
         read_args(parameters, vm);
@@ -202,6 +214,7 @@ int main(int argc, char *argv[])
         ("initial-local-search-restarts,", po::value<Counter>(), "successive sublimation dynamic programming: restarts of the initial local search")
         ("lagrangian-heuristic-local-search,", po::value<bool>(), "successive sublimation dynamic programming: local search in the Lagrangian heuristic")
         ("minimum-branching-depth,", po::value<Counter>(), "successive sublimation dynamic programming: minimum depth of the interval branching")
+        ("all-jobs-in-modifiers,", po::value<bool>(), "time-indexed dynamic programming: all the jobs in the state-space modifiers (exact)")
         ("maximum-number-of-stage-1-iterations,", po::value<Counter>(), "successive sublimation dynamic programming: maximum number of iterations of stage 1")
         ("maximum-number-of-candidates,", po::value<Counter>(), "brute force: maximum number of candidates")
         ("maximum-number-of-restarts,", po::value<Counter>(), "local search: maximum number of restarts")

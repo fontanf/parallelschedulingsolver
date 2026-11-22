@@ -2,8 +2,7 @@
 
 #include "parallelschedulingsolver/algorithms/local_search.hpp"
 
-#include "ssdp_network.hpp"
-#include "hungarian.hpp"
+#include "parallelschedulingsolver/algorithms/dynamic_programming_time_indexed.hpp"
 
 #include "columngenerationsolver/algorithms/column_generation.hpp"
 
@@ -15,7 +14,7 @@
 #include <numeric>
 
 using namespace parallelschedulingsolver;
-using namespace parallelschedulingsolver::ssdp;
+using namespace parallelschedulingsolver::time_indexed;
 
 namespace
 {
@@ -49,12 +48,6 @@ private:
      * Preprocessing.
      */
 
-    /**
-     * Build the problem: remove the zero cost jobs that can be moved to the
-     * end of any schedule (Section 5.1), and compute the bounds of the
-     * makespan.
-     */
-    void build_problem();
 
     /*
      * Bounds.
@@ -65,7 +58,10 @@ private:
     bool end() const { return optimal() || parameters_.timer.needs_to_end(); }
 
     /** Solution of the instance from a sequence of jobs of the problem. */
-    Solution build_solution(const std::vector<JobId>& sequence) const;
+    Solution build_solution(const std::vector<JobId>& sequence) const
+    {
+        return time_indexed::build_solution(instance_, *problem_, sequence);
+    }
 
     void update_upper_bound(
             const Solution& solution,
@@ -103,13 +99,33 @@ private:
 
     /** Reduce the network with the forward labels of the multipliers. */
     void reduce(
-            Network& network,
             const std::vector<double>& multipliers,
             double threshold);
 
-    void stage_1_conjugate_subgradient(Network& network);
+    /**
+     * Call the dynamic programming algorithm, with the timer and the memory
+     * limit of the parameters.
+     */
+    DynamicProgrammingTimeIndexedOutput dynamic_programming(
+            DynamicProgrammingTimeIndexedParameters parameters) const
+    {
+        parameters.verbosity_level = 0;
+        parameters.timer = parameters_.timer;
+        parameters.maximum_memory = parameters_.maximum_memory;
+        return dynamic_programming_time_indexed(instance_, parameters);
+    }
 
-    void stage_1_column_generation(Network& network);
+    /**
+     * Shortest path for some multipliers in the network of stage 1: compute
+     * the forward labels, and return the lower bound and the path.
+     */
+    double evaluate(
+            const std::vector<double>& multipliers,
+            std::vector<JobId>& path);
+
+    void stage_1_conjugate_subgradient();
+
+    void stage_1_column_generation();
 
     /**
      * Process the result of the dynamic programming for some multipliers:
@@ -118,7 +134,6 @@ private:
      * improved. Return true if the best lower bound is improved.
      */
     bool process_stage_1_iteration(
-            Network& network,
             const std::vector<double>& multipliers,
             double lower_bound,
             const std::vector<JobId>& path);
@@ -128,11 +143,11 @@ private:
      */
 
     Status subprocedure(
-            const Network& network,
+            const std::shared_ptr<Network>& network,
             Time& tentative_upper_bound);
 
     Status solve_branch(
-            const Network& network,
+            const std::shared_ptr<Network>& network,
             Time& tentative_upper_bound,
             Counter forced_depth,
             Counter depth);
@@ -151,10 +166,11 @@ private:
 
     double maximum_memory_;
 
-    Problem problem_;
+    std::shared_ptr<const Problem> problem_;
 
-    /** Jobs of the instance removed in preprocessing, scheduled last. */
-    std::vector<JobId> removed_job_ids_;
+    /** Network of stage 1. */
+    std::shared_ptr<Network> network_;
+
 
     std::mt19937_64 generator_ = std::mt19937_64(0);
 
@@ -185,149 +201,6 @@ private:
 
 };
 
-void SuccessiveSublimationDynamicProgramming::build_problem()
-{
-    JobId n = instance_.number_of_jobs();
-    problem_.tardiness = (instance_.objective() == Objective::TotalTardiness);
-
-    auto zero_cost = [this](JobId job_id)
-    {
-        const Job& job = instance_.job(job_id);
-        if (job.weight == 0)
-            return true;
-        return problem_.tardiness && job.due_date < 0;
-    };
-
-    // Remove the zero cost jobs satisfying (40), one at a time.
-    std::vector<bool> removed(n, false);
-    for (bool changed = true; changed;) {
-        changed = false;
-        for (JobId job_id = 0; job_id < n; ++job_id) {
-            if (removed[job_id] || !zero_cost(job_id))
-                continue;
-            Time p = instance_.job(job_id).processing_times[0];
-            bool ok = true;
-            for (JobId job_id_1 = -1; job_id_1 < n && ok; ++job_id_1) {
-                if (job_id_1 == job_id || (job_id_1 >= 0 && removed[job_id_1]))
-                    continue;
-                for (JobId job_id_2 = 0; job_id_2 < n; ++job_id_2) {
-                    if (job_id_2 == job_id || job_id_2 == job_id_1 || removed[job_id_2])
-                        continue;
-                    if (instance_.setup_time(0, job_id_1, job_id)
-                            + p
-                            + instance_.setup_time(0, job_id, job_id_2)
-                            < instance_.setup_time(0, job_id_1, job_id_2)) {
-                        ok = false;
-                        break;
-                    }
-                }
-            }
-            if (ok) {
-                removed[job_id] = true;
-                removed_job_ids_.push_back(job_id);
-                changed = true;
-            }
-        }
-    }
-    // The last removed job is scheduled first among the removed jobs.
-    std::reverse(removed_job_ids_.begin(), removed_job_ids_.end());
-    output_.number_of_removed_jobs = removed_job_ids_.size();
-
-    for (JobId job_id = 0; job_id < n; ++job_id) {
-        if (removed[job_id])
-            continue;
-        const Job& job = instance_.job(job_id);
-        problem_.instance_job_ids.push_back(job_id);
-        problem_.processing_times.push_back(job.processing_times[0]);
-        problem_.weights.push_back(job.weight);
-        problem_.due_dates.push_back(job.due_date);
-    }
-    JobId m = problem_.instance_job_ids.size();
-    problem_.number_of_jobs = m;
-    if (m > 127) {
-        throw std::invalid_argument(
-                FUNC_SIGNATURE + ": "
-                "at most 127 jobs are supported; "
-                "number of jobs: " + std::to_string(m) + ".");
-    }
-    problem_.setup_times.assign((m + 1) * m, 0);
-    for (JobId job_id_1 = -1; job_id_1 < m; ++job_id_1) {
-        for (JobId job_id_2 = 0; job_id_2 < m; ++job_id_2) {
-            if (job_id_1 == job_id_2)
-                continue;
-            problem_.setup_times[(job_id_1 + 1) * m + job_id_2] = instance_.setup_time(
-                    0,
-                    (job_id_1 == -1)? -1: problem_.instance_job_ids[job_id_1],
-                    problem_.instance_job_ids[job_id_2]);
-        }
-    }
-    problem_.extended_processing_times.resize(m);
-    for (JobId job_id = 0; job_id < m; ++job_id) {
-        Time setup_min = problem_.setup_time(-1, job_id);
-        for (JobId job_id_1 = 0; job_id_1 < m; ++job_id_1)
-            if (job_id_1 != job_id)
-                setup_min = (std::min)(setup_min, problem_.setup_time(job_id_1, job_id));
-        problem_.extended_processing_times[job_id] = problem_.processing_times[job_id] + setup_min;
-    }
-
-    // Bounds of the makespan from the assignment relaxation of the
-    // asymmetric traveling salesman problem, with a dummy node 0.
-    Time sum_of_processing_times = std::accumulate(
-            problem_.processing_times.begin(),
-            problem_.processing_times.end(),
-            (Time)0);
-    const Time forbidden = 1e15;
-    std::vector<std::vector<Time>> costs_min(m + 1, std::vector<Time>(m + 1, 0));
-    std::vector<std::vector<Time>> costs_max(m + 1, std::vector<Time>(m + 1, 0));
-    for (JobId a = 0; a <= m; ++a) {
-        for (JobId b = 0; b <= m; ++b) {
-            Time setup = 0;
-            if (a == b) {
-                costs_min[a][b] = forbidden;
-                costs_max[a][b] = forbidden;
-                continue;
-            }
-            if (b > 0)
-                setup = problem_.setup_time(a - 1, b - 1);
-            costs_min[a][b] = setup;
-            costs_max[a][b] = -setup;
-        }
-    }
-    Time setups_min = 0;
-    Time setups_max = 0;
-    if (m > 0) {
-        std::vector<int64_t> assignment_min = hungarian(costs_min, m + 1, m + 1);
-        std::vector<int64_t> assignment_max = hungarian(costs_max, m + 1, m + 1);
-        for (JobId a = 0; a <= m; ++a) {
-            setups_min += costs_min[a][assignment_min[a]];
-            setups_max -= costs_max[a][assignment_max[a]];
-        }
-    }
-    problem_.minimum_makespan = sum_of_processing_times + setups_min;
-    problem_.maximum_makespan = sum_of_processing_times + setups_max;
-}
-
-Solution SuccessiveSublimationDynamicProgramming::build_solution(
-        const std::vector<JobId>& sequence) const
-{
-    SolutionBuilder solution_builder;
-    solution_builder.set_instance(instance_);
-    Time t = 0;
-    JobId job_id_prev = -1;
-    auto append = [&](JobId job_id)
-    {
-        Time start = t + instance_.setup_time(0, job_id_prev, job_id);
-        solution_builder.append_job_to_machine(0, job_id, start);
-        t = start + instance_.job(job_id).processing_times[0];
-        job_id_prev = job_id;
-    };
-    for (JobId job_id: sequence)
-        append(problem_.instance_job_ids[job_id]);
-    for (JobId job_id: removed_job_ids_)
-        append(job_id);
-    return solution_builder.build();
-}
-
 void SuccessiveSublimationDynamicProgramming::update_upper_bound(
         const Solution& solution,
         const std::string& s)
@@ -355,7 +228,7 @@ void SuccessiveSublimationDynamicProgramming::update_lower_bound(
             return;
         lower_bound_ = bound;
     }
-    if (problem_.tardiness) {
+    if (problem_->tardiness) {
         algorithm_formatter_.update_total_tardiness_bound(lower_bound_, s);
     } else {
         algorithm_formatter_.update_total_flow_time_bound(lower_bound_, s);
@@ -371,7 +244,7 @@ void SuccessiveSublimationDynamicProgramming::insert_jobs(
         JobId pos_best = 0;
         for (JobId pos = 0; pos <= (JobId)sequence.size(); ++pos) {
             sequence.insert(sequence.begin() + pos, job_id);
-            Time cost = problem_.sequence_cost(sequence);
+            Time cost = problem_->sequence_cost(sequence);
             sequence.erase(sequence.begin() + pos);
             if (cost < cost_best) {
                 cost_best = cost;
@@ -386,7 +259,7 @@ void SuccessiveSublimationDynamicProgramming::lagrangian_heuristic(
         const std::vector<JobId>& path,
         Direction direction)
 {
-    JobId n = problem_.number_of_jobs;
+    JobId n = problem_->number_of_jobs;
 
     // Remove the duplicated jobs: keep the first occurrence for a forward
     // path, the last one for a backward path.
@@ -417,7 +290,7 @@ void SuccessiveSublimationDynamicProgramming::lagrangian_heuristic(
     std::stable_sort(missing_job_ids.begin(), missing_job_ids.end(),
             [this](JobId job_id_1, JobId job_id_2)
             {
-                return problem_.processing_times[job_id_1] < problem_.processing_times[job_id_2];
+                return problem_->processing_times[job_id_1] < problem_->processing_times[job_id_2];
             });
     insert_jobs(sequence, missing_job_ids);
 
@@ -446,7 +319,7 @@ void SuccessiveSublimationDynamicProgramming::lagrangian_heuristic(
 
 void SuccessiveSublimationDynamicProgramming::initial_upper_bound()
 {
-    JobId n = problem_.number_of_jobs;
+    JobId n = problem_->number_of_jobs;
     std::vector<JobId> job_ids(n);
     std::iota(job_ids.begin(), job_ids.end(), 0);
     std::vector<std::vector<JobId>> orders;
@@ -456,11 +329,11 @@ void SuccessiveSublimationDynamicProgramming::initial_upper_bound()
         std::stable_sort(order.begin(), order.end(), compare);
         orders.push_back(order);
     };
-    const std::vector<Time>& p = problem_.processing_times;
-    const std::vector<Time>& d = problem_.due_dates;
+    const std::vector<Time>& p = problem_->processing_times;
+    const std::vector<Time>& d = problem_->due_dates;
     add_order([&p](JobId j1, JobId j2) { return p[j1] < p[j2]; });
     add_order([&p](JobId j1, JobId j2) { return p[j1] > p[j2]; });
-    if (problem_.tardiness) {
+    if (problem_->tardiness) {
         add_order([&d](JobId j1, JobId j2) { return d[j1] < d[j2]; });
         add_order([&d](JobId j1, JobId j2) { return d[j1] > d[j2]; });
     }
@@ -497,22 +370,35 @@ void SuccessiveSublimationDynamicProgramming::initial_upper_bound()
 ////////////////////////////////////////////////////////////////////////////////
 
 void SuccessiveSublimationDynamicProgramming::reduce(
-        Network& network,
         const std::vector<double>& multipliers,
         double threshold)
 {
-    double sum_of_multipliers = std::accumulate(multipliers.begin(), multipliers.end(), 0.0);
-    network.compute_backward_labels(multipliers);
-    network.reduce(multipliers, sum_of_multipliers, threshold);
-    if (parameters_.constraint_propagation)
-        network.propagate_constraints();
+    DynamicProgrammingTimeIndexedParameters parameters;
+    parameters.network = network_;
+    parameters.multipliers = multipliers;
+    parameters.cutoff = threshold;
+    parameters.reduction = true;
+    parameters.constraint_propagation = parameters_.constraint_propagation;
+    parameters.compute_bound = false;
+    dynamic_programming(parameters);
     output_.maximum_number_of_states = (std::max)(
             output_.maximum_number_of_states,
-            network.number_of_states());
+            network_->number_of_states());
+}
+
+double SuccessiveSublimationDynamicProgramming::evaluate(
+        const std::vector<double>& multipliers,
+        std::vector<JobId>& path)
+{
+    DynamicProgrammingTimeIndexedParameters parameters;
+    parameters.network = network_;
+    parameters.multipliers = multipliers;
+    DynamicProgrammingTimeIndexedOutput output = dynamic_programming(parameters);
+    path = output.path;
+    return output.lagrangian_bound;
 }
 
 bool SuccessiveSublimationDynamicProgramming::process_stage_1_iteration(
-        Network& network,
         const std::vector<double>& multipliers,
         double lower_bound,
         const std::vector<JobId>& path)
@@ -520,11 +406,11 @@ bool SuccessiveSublimationDynamicProgramming::process_stage_1_iteration(
     output_.number_of_stage_1_iterations++;
 
     // A path visiting each job exactly once is a feasible solution.
-    std::vector<JobId> occurrences(problem_.number_of_jobs, 0);
+    std::vector<JobId> occurrences(problem_->number_of_jobs, 0);
     for (JobId job_id: path)
         occurrences[job_id]++;
     bool feasible = true;
-    for (JobId job_id = 0; job_id < problem_.number_of_jobs; ++job_id)
+    for (JobId job_id = 0; job_id < problem_->number_of_jobs; ++job_id)
         if (occurrences[job_id] != 1)
             feasible = false;
     if (feasible)
@@ -539,7 +425,7 @@ bool SuccessiveSublimationDynamicProgramming::process_stage_1_iteration(
         algorithm_formatter_.print(
                 "stage 1 it " + std::to_string(output_.number_of_stage_1_iterations)
                 + " lb " + std::to_string(lower_bound)
-                + " states " + std::to_string(network.number_of_states()));
+                + " states " + std::to_string(network_->number_of_states()));
         heuristic_pending_ = true;
     }
     // Lagrangian heuristic every five iterations, if the best lower bound
@@ -559,17 +445,16 @@ bool SuccessiveSublimationDynamicProgramming::process_stage_1_iteration(
     // updated, with the forward labels of the current multipliers.
     if (improved || upper_bound_ < reduction_upper_bound_) {
         reduction_upper_bound_ = upper_bound_;
-        reduce(network, multipliers, upper_bound_ - 1 + TOLERANCE);
-        if (network.number_of_states() == 0)
+        reduce(multipliers, upper_bound_ - 1 + TOLERANCE);
+        if (network_->number_of_states() == 0)
             update_lower_bound(INF, "network reduction");
     }
     return improved;
 }
 
-void SuccessiveSublimationDynamicProgramming::stage_1_conjugate_subgradient(
-        Network& network)
+void SuccessiveSublimationDynamicProgramming::stage_1_conjugate_subgradient()
 {
-    JobId n = problem_.number_of_jobs;
+    JobId n = problem_->number_of_jobs;
     std::vector<double> multipliers(n, 0);
     std::vector<double> direction(n, 0);
     double direction_norm = 0;
@@ -587,16 +472,13 @@ void SuccessiveSublimationDynamicProgramming::stage_1_conjugate_subgradient(
         if (end())
             return;
 
-        network.compute_forward_labels(multipliers);
-        double sum_of_multipliers = std::accumulate(multipliers.begin(), multipliers.end(), 0.0);
-        double length = network.shortest_path_length(Direction::Forward, multipliers);
-        if (length == INF) {
+        std::vector<JobId> path;
+        double lower_bound = evaluate(multipliers, path);
+        if (lower_bound == INF) {
             update_lower_bound(INF, "stage 1");
             return;
         }
-        double lower_bound = length + sum_of_multipliers;
-        std::vector<JobId> path = network.shortest_path(Direction::Forward, multipliers);
-        bool improved = process_stage_1_iteration(network, multipliers, lower_bound, path);
+        bool improved = process_stage_1_iteration(multipliers, lower_bound, path);
         if (end())
             return;
 
@@ -731,27 +613,24 @@ private:
 
 }
 
-void SuccessiveSublimationDynamicProgramming::stage_1_column_generation(
-        Network& network)
+void SuccessiveSublimationDynamicProgramming::stage_1_column_generation()
 {
 #if defined(HIGHS_FOUND) || defined(CLP_FOUND)
-    JobId n = problem_.number_of_jobs;
+    JobId n = problem_->number_of_jobs;
     bool infeasible = false;
 
     // Dynamic programming for some multipliers.
-    auto evaluate = [this, &network, &infeasible](
+    auto evaluate = [this, &infeasible](
             const std::vector<double>& multipliers)
     {
-        network.compute_forward_labels(multipliers);
-        double length = network.shortest_path_length(Direction::Forward, multipliers);
-        if (length == INF) {
+        std::vector<JobId> path;
+        double lower_bound = this->evaluate(multipliers, path);
+        if (lower_bound == INF) {
             infeasible = true;
             update_lower_bound(INF, "stage 1");
             return std::vector<JobId>();
         }
-        double sum_of_multipliers = std::accumulate(multipliers.begin(), multipliers.end(), 0.0);
-        std::vector<JobId> path = network.shortest_path(Direction::Forward, multipliers);
-        process_stage_1_iteration(network, multipliers, length + sum_of_multipliers, path);
+        process_stage_1_iteration(multipliers, lower_bound, path);
         return path;
     };
     auto stop = [this, &infeasible]()
@@ -772,7 +651,7 @@ void SuccessiveSublimationDynamicProgramming::stage_1_column_generation(
         model.rows.push_back(row);
     }
     auto pricing_solver = std::unique_ptr<Stage1PricingSolver>(
-            new Stage1PricingSolver(problem_, evaluate, stop));
+            new Stage1PricingSolver(*problem_, evaluate, stop));
     Stage1PricingSolver& pricing_solver_ref = *pricing_solver;
     model.pricing_solver = std::move(pricing_solver);
 
@@ -809,7 +688,6 @@ void SuccessiveSublimationDynamicProgramming::stage_1_column_generation(
 
     columngenerationsolver::column_generation(model, column_generation_parameters);
 #else
-    (void)network;
     throw std::invalid_argument(
             FUNC_SIGNATURE + ": "
             "column generation requires an LP solver.");
@@ -821,25 +699,24 @@ void SuccessiveSublimationDynamicProgramming::stage_1_column_generation(
 ////////////////////////////////////////////////////////////////////////////////
 
 Status SuccessiveSublimationDynamicProgramming::subprocedure(
-        const Network& network,
+        const std::shared_ptr<Network>& network,
         Time& tentative_upper_bound)
 {
-    JobId n = problem_.number_of_jobs;
+    JobId n = problem_->number_of_jobs;
     const std::vector<double>& multipliers = multipliers_;
     output_.number_of_subprocedures++;
 
     // The network has the forward and backward labels of the multipliers.
-    double lower_bound = network.shortest_path_length(Direction::Forward, multipliers)
+    double lower_bound = network->shortest_path_length(Direction::Forward, multipliers)
         + sum_of_multipliers_;
     double best_lower_bound = lower_bound;
-    std::vector<JobId> path = network.shortest_path(Direction::Forward, multipliers);
+    std::vector<JobId> path = network->shortest_path(Direction::Forward, multipliers);
 
     // Strategy for the choice of the modifiers: (S1) if the memory usage is
     // small, (S2) otherwise.
-    bool strategy_1 = (network.memory() / maximum_memory_ < std::pow(2.0, -6));
+    bool strategy_1 = (network->memory() / maximum_memory_ < std::pow(2.0, -6));
 
-    const Network* network_old = &network;
-    std::unique_ptr<Network> network_old_owned;
+    std::shared_ptr<Network> network_old = network;
     Direction direction = Direction::Forward;
     Mask modifiers;
     JobId number_of_modifiers = 0;
@@ -908,21 +785,19 @@ Status SuccessiveSublimationDynamicProgramming::subprocedure(
             new_modifiers.set(job_id);
 
         // Generate the new network.
-        auto network_new = std::make_unique<Network>(problem_);
-        bool ok = network_old->generate(
-                *network_new,
-                new_modifiers,
-                direction,
-                multipliers,
-                sum_of_multipliers_,
-                tentative_upper_bound - 1 + TOLERANCE,
-                maximum_memory_,
-                &parameters_.timer);
-        if (!ok) {
-            if (parameters_.timer.needs_to_end())
-                return Status::TimeOut;
+        DynamicProgrammingTimeIndexedParameters dp_parameters;
+        dp_parameters.network = network_old;
+        dp_parameters.multipliers = multipliers;
+        dp_parameters.new_modifier_jobs = selected_job_ids;
+        dp_parameters.direction = direction;
+        dp_parameters.cutoff = tentative_upper_bound - 1 + TOLERANCE;
+        dp_parameters.constraint_propagation = parameters_.constraint_propagation;
+        DynamicProgrammingTimeIndexedOutput dp_output = dynamic_programming(dp_parameters);
+        if (dp_output.memory_out)
             return Status::MemoryOut;
-        }
+        if (parameters_.timer.needs_to_end())
+            return Status::TimeOut;
+        std::shared_ptr<Network> network_new = dp_output.network;
         modifiers = new_modifiers;
         number_of_modifiers += selected_job_ids.size();
         output_.maximum_number_of_modifiers = (std::max)(
@@ -932,21 +807,8 @@ Status SuccessiveSublimationDynamicProgramming::subprocedure(
                 output_.maximum_number_of_states,
                 network_new->number_of_states());
 
-        if (parameters_.constraint_propagation) {
-            Counter number_of_states = network_new->number_of_states();
-            network_new->propagate_constraints();
-            if (network_new->number_of_states() != number_of_states) {
-                if (direction == Direction::Forward) {
-                    network_new->compute_forward_labels(multipliers);
-                } else {
-                    network_new->compute_backward_labels(multipliers);
-                }
-            }
-        }
-
-        lower_bound = network_new->shortest_path_length(direction, multipliers)
-            + sum_of_multipliers_;
-        path = network_new->shortest_path(direction, multipliers);
+        lower_bound = dp_output.lagrangian_bound;
+        path = dp_output.path;
         algorithm_formatter_.print(
                 "m " + std::to_string(number_of_modifiers)
                 + " states " + std::to_string(network_new->number_of_states())
@@ -969,14 +831,13 @@ Status SuccessiveSublimationDynamicProgramming::subprocedure(
         best_lower_bound = (std::max)(best_lower_bound, lower_bound);
         tentative_upper_bound = (std::min)(tentative_upper_bound, upper_bound_);
 
-        network_old_owned = std::move(network_new);
-        network_old = network_old_owned.get();
+        network_old = network_new;
         direction = (direction == Direction::Forward)? Direction::Backward: Direction::Forward;
     }
 }
 
 Status SuccessiveSublimationDynamicProgramming::solve_branch(
-        const Network& network,
+        const std::shared_ptr<Network>& network,
         Time& tentative_upper_bound,
         Counter forced_depth,
         Counter depth)
@@ -992,11 +853,11 @@ Status SuccessiveSublimationDynamicProgramming::solve_branch(
     // Interval branching (Section 5.4): split the completion times of the
     // two jobs with the most states into two intervals with balanced
     // numbers of states.
-    JobId n = problem_.number_of_jobs;
-    std::vector<Counter> number_of_states = network.number_of_states_by_job();
+    JobId n = problem_->number_of_jobs;
+    std::vector<Counter> number_of_states = network->number_of_states_by_job();
     std::vector<Time> earliest_completion_times;
     std::vector<Time> latest_completion_times;
-    network.time_windows(earliest_completion_times, latest_completion_times);
+    network->time_windows(earliest_completion_times, latest_completion_times);
     std::vector<JobId> job_ids;
     for (JobId job_id = 0; job_id < n; ++job_id)
         if (earliest_completion_times[job_id] < latest_completion_times[job_id])
@@ -1019,7 +880,7 @@ Status SuccessiveSublimationDynamicProgramming::solve_branch(
     // t <= c and at t > c are balanced.
     std::vector<Time> splits;
     for (JobId job_id: job_ids) {
-        std::vector<Counter> counts = network.number_of_states_by_time(job_id);
+        std::vector<Counter> counts = network->number_of_states_by_time(job_id);
         Counter total = number_of_states[job_id];
         Counter sum = 0;
         Time split = earliest_completion_times[job_id];
@@ -1042,33 +903,31 @@ Status SuccessiveSublimationDynamicProgramming::solve_branch(
     for (Counter child = 0; child < number_of_children; ++child) {
         if (parameters_.timer.needs_to_end())
             return Status::TimeOut;
-        Network network_child = network;
+        DynamicProgrammingTimeIndexedParameters dp_parameters;
+        dp_parameters.network = std::make_shared<Network>(*network);
+        dp_parameters.multipliers = multipliers_;
         for (size_t pos = 0; pos < job_ids.size(); ++pos) {
             JobId job_id = job_ids[pos];
             if ((child >> pos) & 1) {
-                network_child.restrict(
+                dp_parameters.completion_time_windows.push_back({
                         job_id,
                         splits[pos] + 1,
-                        latest_completion_times[job_id]);
+                        latest_completion_times[job_id]});
             } else {
-                network_child.restrict(
+                dp_parameters.completion_time_windows.push_back({
                         job_id,
                         earliest_completion_times[job_id],
-                        splits[pos]);
+                        splits[pos]});
             }
         }
-        network_child.compute_forward_labels(multipliers_);
-        network_child.compute_backward_labels(multipliers_);
-        network_child.reduce(
-                multipliers_,
-                sum_of_multipliers_,
-                tentative_upper_bound - 1 + TOLERANCE);
-        if (parameters_.constraint_propagation)
-            network_child.propagate_constraints();
-        if (network_child.number_of_states() == 0)
+        dp_parameters.cutoff = tentative_upper_bound - 1 + TOLERANCE;
+        dp_parameters.reduction = true;
+        dp_parameters.constraint_propagation = parameters_.constraint_propagation;
+        dp_parameters.both_directions_labels = true;
+        DynamicProgrammingTimeIndexedOutput dp_output = dynamic_programming(dp_parameters);
+        std::shared_ptr<Network> network_child = dp_output.network;
+        if (network_child->number_of_states() == 0)
             continue;
-        network_child.compute_forward_labels(multipliers_);
-        network_child.compute_backward_labels(multipliers_);
         Status status = solve_branch(
                 network_child,
                 tentative_upper_bound,
@@ -1082,8 +941,9 @@ Status SuccessiveSublimationDynamicProgramming::solve_branch(
 
 void SuccessiveSublimationDynamicProgramming::run()
 {
-    build_problem();
-    JobId n = problem_.number_of_jobs;
+    problem_ = build_problem(instance_);
+    output_.number_of_removed_jobs = problem_->removed_job_ids.size();
+    JobId n = problem_->number_of_jobs;
 
     initial_upper_bound();
     if (n == 0) {
@@ -1096,10 +956,10 @@ void SuccessiveSublimationDynamicProgramming::run()
 
     // Stage 1.
     output_.stage = 1;
-    Network network = Network::initial_network(problem_);
-    output_.maximum_number_of_states = network.number_of_states();
+    network_ = std::make_shared<Network>(Network::initial_network(problem_));
+    output_.maximum_number_of_states = network_->number_of_states();
     algorithm_formatter_.print(
-            "stage 1 states " + std::to_string(network.number_of_states()));
+            "stage 1 states " + std::to_string(network_->number_of_states()));
 #if defined(HIGHS_FOUND) || defined(CLP_FOUND)
     bool column_generation = parameters_.column_generation;
 #else
@@ -1107,9 +967,9 @@ void SuccessiveSublimationDynamicProgramming::run()
     bool column_generation = false;
 #endif
     if (column_generation) {
-        stage_1_column_generation(network);
+        stage_1_column_generation();
     } else {
-        stage_1_conjugate_subgradient(network);
+        stage_1_conjugate_subgradient();
     }
     if (end())
         return;
@@ -1118,22 +978,28 @@ void SuccessiveSublimationDynamicProgramming::run()
 
     // Network reduction with the multipliers of stage 1, then the labels of
     // both directions for stage 2.
-    network.compute_forward_labels(multipliers_);
-    reduce(network, multipliers_, upper_bound_ - 1 + TOLERANCE);
-    if (network.number_of_states() == 0) {
+    DynamicProgrammingTimeIndexedParameters dp_parameters;
+    dp_parameters.network = network_;
+    dp_parameters.multipliers = multipliers_;
+    dp_parameters.cutoff = upper_bound_ - 1 + TOLERANCE;
+    dp_parameters.reduction = true;
+    dp_parameters.constraint_propagation = parameters_.constraint_propagation;
+    dp_parameters.both_directions_labels = true;
+    DynamicProgrammingTimeIndexedOutput dp_output = dynamic_programming(dp_parameters);
+    output_.maximum_number_of_states = (std::max)(
+            output_.maximum_number_of_states,
+            network_->number_of_states());
+    if (network_->number_of_states() == 0) {
         update_lower_bound(INF, "stage 1");
         return;
     }
-    network.compute_forward_labels(multipliers_);
-    network.compute_backward_labels(multipliers_);
-    double stage_1_lower_bound = network.shortest_path_length(Direction::Forward, multipliers_)
-        + sum_of_multipliers_;
+    double stage_1_lower_bound = dp_output.lagrangian_bound;
     stage_1_lower_bound = (std::max)(stage_1_lower_bound, best_lower_bound_);
     output_.stage_1_lower_bound = stage_1_lower_bound;
     update_lower_bound(stage_1_lower_bound, "stage 1");
     algorithm_formatter_.print(
             "stage 1 lb " + std::to_string(stage_1_lower_bound)
-            + " states " + std::to_string(network.number_of_states()));
+            + " states " + std::to_string(network_->number_of_states()));
     if (end())
         return;
 
@@ -1150,7 +1016,7 @@ void SuccessiveSublimationDynamicProgramming::run()
         if (tentative_upper_bound <= lower_bound_)
             continue;
         branching_depth_ = 0;
-        Status status = solve_branch(network, tentative_upper_bound, forced_depth, 0);
+        Status status = solve_branch(network_, tentative_upper_bound, forced_depth, 0);
         if (status != Status::Completed)
             return;
         // No solution better than the tentative upper bound.

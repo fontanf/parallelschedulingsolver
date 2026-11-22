@@ -20,6 +20,8 @@ On parallel machines without setup times, when a sequencing rule is optimal for 
 | $\sum w_j C_j$ without release dates | Weighted shortest processing time first (Smith, 1956) |
 | $L_{\max}$ without release dates | Earliest due date first, jobs without due date last (Jackson, 1955) |
 
+With rejection costs, these candidates are enumerated for each subset of the jobs with a rejection cost: the jobs of the subset are rejected, and their rejection costs are added to the value. With $r$ such jobs, there are $\sum_k \binom{r}{k} N(n - k)$ candidates, where $N(n)$ is the number of candidates with $n$ jobs.
+
 The value of each candidate is computed directly. Each time the best value improves, the solution is built with the `SolutionBuilder`, which recomputes and checks it independently: the algorithm throws `std::logic_error` if the two values differ.
 
 ## Parameters
@@ -29,7 +31,7 @@ The value of each candidate is computed directly. Each time the best value impro
 
 ## Supported problems
 
-All the problems of the repository: single, identical, uniform and unrelated machines, release dates, sequence-dependent setup times, all the objectives.
+All the problems of the repository: single, identical, uniform and unrelated machines, release dates, sequence-dependent setup times, rejection costs, all the objectives.
 
 Practical sizes, for $10^6$ candidates (less than 1 s):
 
@@ -47,6 +49,7 @@ When the enumeration completes, the algorithm sets the bound of the objective to
 ## Tests
 
 * `test/algorithms/brute_force_test.cpp`: setup times on one and two machines, a setup performed before the release date, the empty instance, and the limit on the number of candidates.
+* Rejection costs: three small instances (one machine, two machines with a sequencing rule, all the jobs rejected), and five test instances with rejection costs for the jobs of even id, whose optimal value is checked against the best, over the subsets of rejected jobs, of the optimal value of the instance without these jobs plus their rejection costs.
 * Optimal values proved by the time-indexed MILP on all the test instances without setup times small enough for the brute force (`test/algorithms/brute_force_test.txt`, all the objectives).
 * Optimal maximum lateness of `test/algorithms/milp_assignment_maximum_lateness_test.txt`, proved by the assignment MILP in its tests.
 * Checked once, not in the tests: the optimal makespans of the 160 instances of Vallada and Ruiz (2011) with 6 jobs ($R \mid s_{ijk} \mid C_{\max}$), and the values of the Python brute force it replaces on all the reference files.

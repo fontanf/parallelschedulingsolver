@@ -118,5 +118,14 @@ Instance parallelschedulingsolver::generate(
                 uniform_int(generator, due_date_min, due_date_max));
     }
 
+    // Rejection costs.
+    if (input.rejection_costs_range > 0) {
+        for (JobId job_id = 0; job_id < number_of_jobs; ++job_id) {
+            instance_builder.set_job_rejection_cost(
+                    job_id,
+                    uniform_int(generator, 0, input.rejection_costs_range));
+        }
+    }
+
     return instance_builder.build();
 }

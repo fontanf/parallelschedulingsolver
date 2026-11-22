@@ -65,12 +65,22 @@ struct TestJob
     Time due_date = -1;
 
     Time weight = 1;
+
+    /** Rejection cost; -1 if the job can't be rejected. */
+    Time rejection_cost = -1;
 };
 
 Instance build_instance(
         Objective objective,
         MachineId number_of_machines,
         const std::vector<TestJob>& jobs);
+
+/**
+ * Instance with a rejection cost, which the algorithms that don't support
+ * rejection costs reject: two jobs on one machine, job 0 with a rejection
+ * cost.
+ */
+Instance rejection_costs_instance(Objective objective);
 
 /** For each machine, the sequence of (job id, start time). */
 using ExpectedSchedule = std::vector<std::vector<std::pair<JobId, Time>>>;

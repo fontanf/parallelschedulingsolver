@@ -43,6 +43,14 @@ const Instance& maximum_lateness_instance(const Instance& instance)
 
 }
 
+
+TEST(MilpAssignment, RejectionCosts)
+{
+    MilpAssignmentParameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(milp_assignment(rejection_costs_instance(Objective::Makespan), parameters), std::invalid_argument);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         MilpAssignment,
         ScheduleTest,

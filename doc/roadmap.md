@@ -18,7 +18,7 @@ Status: **planned**, **in progress** or **done** (with the `--algorithm` option)
 ## Relaxation refinement framework
 
 **Planned**: split [successive sublimation dynamic programming](successive_sublimation_dynamic_programming.md) into independent algorithms, so that several published methods become configurations of the same components:
-* Problem variant: a rejection cost for each job (infinite by default, i.e. the job is mandatory), with the objective $\sum w_j T_j + \sum e_j$ (or $\sum w_j C_j + \sum e_j$), supported by the brute force for the tests. With the rejection costs equal to the Lagrangian multipliers of the constraints "each job exactly once", it is the Lagrangian subproblem where each job is processed at most once.
+* **Done**: problem variant: a rejection cost for each job (`rejection_cost`, -1 by default, i.e. the job is mandatory), with the objective $C_{\max} + \sum e_j$, $\sum w_j C_j + \sum e_j$ or $\sum w_j T_j + \sum e_j$ over the rejected jobs, supported by the brute force for the tests, and by the generator (`--rejection-costs-range`). The rejection costs are non-negative integers: the Lagrangian multipliers, real numbers, are not rejection costs of the instance, but an input of the dynamic programming algorithm. With the rejection costs equal to the Lagrangian multipliers of the constraints "each job exactly once", it is the Lagrangian subproblem where each job is processed at most once.
 * Dynamic programming algorithm on the time-expanded network for the single machine problem with rejection costs, with a relaxation level:
   * (LR1): jobs processed any number of times (weighted stable set on an interval graph without setup times);
   * (LR2): no job processed twice in three successive nodes;

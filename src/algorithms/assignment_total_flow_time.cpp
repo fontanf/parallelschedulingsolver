@@ -16,6 +16,12 @@ Output parallelschedulingsolver::assignment_total_flow_time(
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Assignment, total flow time");
 
+    if (instance.has_rejection_costs()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "rejection costs are not supported.");
+    }
+
     if (instance.has_setup_times()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "

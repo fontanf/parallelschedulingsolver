@@ -53,6 +53,18 @@ public:
             Time weight);
 
     /**
+     * Set the rejection cost of a job: the job may not be scheduled, and then
+     * its rejection cost is added to the objective; -1 if the job must be
+     * scheduled (default).
+     *
+     * Rejection costs are supported with the makespan, the total (weighted)
+     * flow time and the total (weighted) tardiness.
+     */
+    void set_job_rejection_cost(
+            JobId job_id,
+            Time rejection_cost);
+
+    /**
      * Set the setup time when job_id_2 is processed right after job_id_1 on a
      * machine; job_id_1 = -1 for the setup time when job_id_2 is the first
      * job of the machine.

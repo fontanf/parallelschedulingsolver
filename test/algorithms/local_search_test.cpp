@@ -34,6 +34,12 @@ TEST(LocalSearch, EmptyInstance)
     EXPECT_EQ(output.solution.objective_value(), 0);
 }
 
+
+TEST(LocalSearch, RejectionCosts)
+{
+    EXPECT_THROW(local_search_test(rejection_costs_instance(Objective::TotalTardiness)), std::invalid_argument);
+}
+
 // The instances are small enough for the local search to always find an
 // optimal solution. The local search doesn't prove optimality, so the bound
 // is not checked.

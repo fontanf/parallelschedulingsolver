@@ -95,6 +95,9 @@ void Instance::write(
         if (job.due_date >= 0)
             json["jobs"][job_id]["due_date"] = job.due_date;
         json["jobs"][job_id]["weight"] = job.weight;
+        // Job that can't be rejected: the field is omitted.
+        if (job.rejection_cost >= 0)
+            json["jobs"][job_id]["rejection_cost"] = job.rejection_cost;
     }
     if (this->has_setup_times()) {
         for (MachineId machine_id = 0;
@@ -126,6 +129,7 @@ std::ostream& Instance::format(
             << "Number of machines:          " << this->number_of_machines() << std::endl
             << "Objective:                   " << this->objective() << std::endl
             << "Setup times:                 " << this->has_setup_times() << std::endl
+            << "Rejection costs:             " << this->has_rejection_costs() << std::endl
             ;
     }
 
@@ -135,11 +139,13 @@ std::ostream& Instance::format(
             << std::setw(12) << "Rel. date"
             << std::setw(12) << "Due date"
             << std::setw(12) << "Weight"
+            << std::setw(12) << "Rej. cost"
             << std::endl
             << std::setw(12) << "---"
             << std::setw(12) << "---------"
             << std::setw(12) << "--------"
             << std::setw(12) << "------"
+            << std::setw(12) << "---------"
             << std::endl;
         for (JobId job_id = 0; job_id < this->number_of_jobs(); ++job_id) {
             const Job& job = this->job(job_id);
@@ -148,6 +154,7 @@ std::ostream& Instance::format(
                 << std::setw(12) << job.release_date
                 << std::setw(12) << job.due_date
                 << std::setw(12) << job.weight
+                << std::setw(12) << job.rejection_cost
                 << std::endl;
         }
     }

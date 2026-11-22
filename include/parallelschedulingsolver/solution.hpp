@@ -96,10 +96,22 @@ public:
     /** Get the maximum lateness of the solution. */
     Time maximum_lateness() const { return maximum_lateness_; }
 
-    /** Get the objective value of the solution. */
+    /** Get the number of rejected jobs: the jobs with a rejection cost that are not scheduled. */
+    JobId number_of_rejected_jobs() const { return number_of_rejected_jobs_; }
+
+    /** Get the total rejection cost of the rejected jobs. */
+    Time total_rejection_cost() const { return total_rejection_cost_; }
+
+    /**
+     * Get the objective value of the solution: the makespan, total flow time
+     * or total tardiness, plus the total rejection cost.
+     */
     double objective_value() const;
 
-    /** Check if the solution is feasible. */
+    /**
+     * Check if the solution is feasible: all the jobs are scheduled, except
+     * the rejected jobs.
+     */
     bool feasible() const;
 
     /** Check if the solution is strictly better than another solution. */
@@ -161,6 +173,12 @@ private:
 
     /** Maximum lateness. */
     Time maximum_lateness_ = std::numeric_limits<Time>::min();
+
+    /** Number of rejected jobs. */
+    JobId number_of_rejected_jobs_ = 0;
+
+    /** Total rejection cost. */
+    Time total_rejection_cost_ = 0;
 
     friend class SolutionBuilder;
 

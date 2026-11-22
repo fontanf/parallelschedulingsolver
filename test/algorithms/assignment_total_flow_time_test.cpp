@@ -3,6 +3,14 @@
 
 using namespace parallelschedulingsolver;
 
+
+TEST(AssignmentTotalFlowTime, RejectionCosts)
+{
+    Parameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(assignment_total_flow_time(rejection_costs_instance(Objective::TotalFlowTime), parameters), std::invalid_argument);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         AssignmentTotalFlowTime,
         ScheduleTest,

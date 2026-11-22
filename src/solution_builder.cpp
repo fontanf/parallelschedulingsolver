@@ -116,6 +116,17 @@ Solution SolutionBuilder::build()
                     machine_schedule.maximum_lateness);
         }
     }
+
+    // Rejected jobs: the jobs with a rejection cost that are not scheduled.
+    this->solution_.number_of_rejected_jobs_ = 0;
+    this->solution_.total_rejection_cost_ = 0;
+    for (JobId job_id = 0; job_id < instance.number_of_jobs(); ++job_id) {
+        const Job& job = instance.job(job_id);
+        if (!this->solution_.contains(job_id) && job.rejection_cost >= 0) {
+            this->solution_.number_of_rejected_jobs_++;
+            this->solution_.total_rejection_cost_ += job.rejection_cost;
+        }
+    }
     return std::move(solution_);
 }
 

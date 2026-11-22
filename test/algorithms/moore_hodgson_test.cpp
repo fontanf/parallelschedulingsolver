@@ -10,6 +10,14 @@ TEST(MooreHodgson, ParallelMachines)
     EXPECT_THROW(moore_hodgson(instance), std::invalid_argument);
 }
 
+
+TEST(MooreHodgson, RejectionCosts)
+{
+    Parameters parameters;
+    parameters.verbosity_level = 0;
+    EXPECT_THROW(moore_hodgson(rejection_costs_instance(Objective::TotalTardiness), parameters), std::invalid_argument);
+}
+
 INSTANTIATE_TEST_SUITE_P(
         MooreHodgson,
         ScheduleTest,

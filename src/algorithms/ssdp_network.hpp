@@ -25,6 +25,10 @@
 
 #pragma once
 
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+
 #include "parallelschedulingsolver/instance.hpp"
 
 #include "optimizationtools/utils/timer.hpp"
@@ -40,6 +44,19 @@ namespace ssdp
 {
 
 constexpr double INF = std::numeric_limits<double>::infinity();
+
+
+/** Number of trailing zero bits of a nonzero word. */
+inline int count_trailing_zeros(uint64_t word)
+{
+#if defined(_MSC_VER)
+    unsigned long index;
+    _BitScanForward64(&index, word);
+    return (int)index;
+#else
+    return __builtin_ctzll(word);
+#endif
+}
 
 /**
  * Set of jobs, with one more element (the source or the sink); at most 127
@@ -74,7 +91,7 @@ struct Mask
         for (int word_id = 0; word_id < 2; ++word_id) {
             uint64_t word = words[word_id];
             while (word != 0) {
-                int bit = __builtin_ctzll(word);
+                int bit = count_trailing_zeros(word);
                 f((JobId)(64 * word_id + bit));
                 word &= word - 1;
             }

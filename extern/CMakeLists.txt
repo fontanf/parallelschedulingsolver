@@ -69,7 +69,7 @@ endif()
 FetchContent_Declare(
     columngenerationsolver
     GIT_REPOSITORY https://github.com/fontanf/columngenerationsolver.git
-    GIT_TAG 704f33920c57f435fdd9843ba3189b82caeb3e33
+    GIT_TAG 74feae4066a226fc562df1308a71a5eac3b972fd
     #SOURCE_DIR "${PROJECT_SOURCE_DIR}/../columngenerationsolver/"
     EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(columngenerationsolver)

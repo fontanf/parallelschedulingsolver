@@ -131,3 +131,15 @@ target_link_libraries(ParallelSchedulingSolver_brute_force_test
 gtest_discover_tests(ParallelSchedulingSolver_brute_force_test
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     PROPERTIES TIMEOUT 3600)
+
+add_executable(ParallelSchedulingSolver_successive_sublimation_dynamic_programming_test)
+target_sources(ParallelSchedulingSolver_successive_sublimation_dynamic_programming_test PRIVATE
+    successive_sublimation_dynamic_programming_test.txt
+    successive_sublimation_dynamic_programming_test.cpp)
+target_link_libraries(ParallelSchedulingSolver_successive_sublimation_dynamic_programming_test
+    ParallelSchedulingSolver_tests
+    ParallelSchedulingSolver_successive_sublimation_dynamic_programming
+    GTest::gtest_main)
+gtest_discover_tests(ParallelSchedulingSolver_successive_sublimation_dynamic_programming_test
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    PROPERTIES TIMEOUT 3600)

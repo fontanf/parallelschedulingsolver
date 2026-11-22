@@ -177,6 +177,8 @@ python3 scripts/solve_test_data.py --criterion objective --output test/algorithm
     data/test_{tft,twft,tt,twt}_{single,single_release_dates,identical,identical_equal_processing_times,unrelated}.txt
 python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/local_search_setup_times_test.txt --instances \
     data/test_{tft,twft,tt,twt}_*setup_times.txt
+python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/successive_sublimation_dynamic_programming_test.txt --instances \
+    data/test_{tft,twft,tt,twt}_{single,single_setup_times}.txt
 python3 scripts/solve_test_data.py --algorithm milp-time-indexed --time-limit 1 --output test/algorithms/brute_force_test.txt \
     --keep-if-solved-by brute-force "--keep-if-solved-with=--maximum-number-of-candidates 100000" \
     --instances data/test_*_{single,single_release_dates,identical,identical_equal_processing_times,unrelated}.txt

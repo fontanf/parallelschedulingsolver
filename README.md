@@ -123,6 +123,7 @@ $1 \mid \mid \sum T_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum T_j$
@@ -134,6 +135,7 @@ $1 \mid \mid \sum w_j T_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` (optimal if all jobs are tardy)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum w_j T_j$
@@ -326,10 +328,16 @@ $R_m \mid r_j \mid \sum w_j U_j$
 
 #### Objective total flow time
 
+$1 \mid s_{ij} \mid \sum w_j C_j$
+* [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
+
 $1 \mid s_{ij} \mid \sum w_j C_j$, $P \mid s_{ij} \mid \sum w_j C_j$, $R \mid s_{ijk} \mid \sum w_j C_j$, with or without release dates
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 #### Objective total tardiness
+
+$1 \mid s_{ij} \mid \sum w_j T_j$
+* [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 
 $1 \mid s_{ij} \mid \sum w_j T_j$, $P \mid s_{ij} \mid \sum w_j T_j$, $R \mid s_{ijk} \mid \sum w_j T_j$, with or without release dates
 * [Local search](doc/local_search.md) `--algorithm local-search`

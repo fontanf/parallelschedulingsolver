@@ -29,18 +29,19 @@
 #include <intrin.h>
 #endif
 
-#include "parallelschedulingsolver/instance.hpp"
+#include "parallelschedulingsolver/solution.hpp"
 
 #include "optimizationtools/utils/timer.hpp"
 
 #include <array>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <vector>
 
 namespace parallelschedulingsolver
 {
-namespace ssdp
+namespace time_indexed
 {
 
 constexpr double INF = std::numeric_limits<double>::infinity();
@@ -111,6 +112,12 @@ struct Problem
     /** Job of the instance of each job. */
     std::vector<JobId> instance_job_ids;
 
+    /**
+     * Jobs of the instance removed in preprocessing (zero cost jobs), in the
+     * order in which they are scheduled, after the other jobs.
+     */
+    std::vector<JobId> removed_job_ids;
+
     std::vector<Time> processing_times;
 
     /** Setup times, indexed by (job_id_1 + 1) * n + job_id_2, -1 for the first job. */
@@ -151,6 +158,32 @@ struct Problem
     /** Total cost of a sequence of jobs. */
     Time sequence_cost(const std::vector<JobId>& sequence) const;
 };
+
+/**
+ * Build the problem of an instance: single machine, total (weighted)
+ * tardiness or total (weighted) completion time, without release dates.
+ *
+ * If 'remove_zero_cost_jobs', the zero cost jobs that can be moved to the end
+ * of any schedule without increasing its cost (Section 5.1 of Tanaka and
+ * Araki, 2013) are removed, one at a time. The bounds of the makespan are
+ * computed with the assignment relaxation of the asymmetric traveling
+ * salesman problem of the setup times.
+ *
+ * Throw std::invalid_argument if the instance is not supported, or if the
+ * problem has more than 127 jobs.
+ */
+std::shared_ptr<const Problem> build_problem(
+        const Instance& instance,
+        bool remove_zero_cost_jobs = true);
+
+/**
+ * Solution of the instance from a sequence of jobs of the problem, followed
+ * by the removed jobs, each job as early as possible.
+ */
+Solution build_solution(
+        const Instance& instance,
+        const Problem& problem,
+        const std::vector<JobId>& sequence);
 
 /**
  * Shortest and second shortest path lengths with different neighbor jobs:
@@ -219,15 +252,17 @@ class Network
 public:
 
     /** Create an empty network. */
-    Network(const Problem& problem):
-        problem_(&problem),
-        bucket_starts_((problem.maximum_makespan + 1) * problem.number_of_jobs + 1, 0) { }
+    Network(const std::shared_ptr<const Problem>& problem):
+        problem_(problem),
+        bucket_starts_((problem->maximum_makespan + 1) * problem->number_of_jobs + 1, 0) { }
 
     /*
      * Getters.
      */
 
     const Problem& problem() const { return *problem_; }
+
+    const std::shared_ptr<const Problem>& problem_pointer() const { return problem_; }
 
     /** Jobs with state-space modifiers (M). */
     const Mask& modifiers() const { return modifiers_; }
@@ -254,6 +289,33 @@ public:
 
     /** Direction of the labels computed last. */
     Direction labels_direction() const { return labels_direction_; }
+
+    /**
+     * True if the labels of the given direction have been computed with
+     * these multipliers, and the network hasn't been modified since.
+     */
+    bool labels_up_to_date(
+            Direction direction,
+            const std::vector<double>& multipliers) const
+    {
+        int d = (direction == Direction::Forward)? 0: 1;
+        return labels_valid_[d] && labels_multipliers_[d] == multipliers;
+    }
+
+    /**
+     * True if some completion times have been restricted (restrict), in this
+     * network or in the networks it has been generated from: the paths of the
+     * network are then not all the schedules of the problem.
+     */
+    bool restricted() const { return restricted_; }
+
+    /**
+     * Smallest threshold of the reductions and generations of this network
+     * and of the networks it has been generated from: all the schedules of
+     * cost at most this threshold are paths of the network (unless it is
+     * restricted). INF if none.
+     */
+    double cutoff() const { return cutoff_; }
 
     /*
      * Dynamic programming on the current network.
@@ -336,7 +398,7 @@ public:
      * Initial network (M empty) with all the states reachable from the
      * source and from which the sink is reachable.
      */
-    static Network initial_network(const Problem& problem);
+    static Network initial_network(const std::shared_ptr<const Problem>& problem);
 
 private:
 
@@ -384,6 +446,23 @@ private:
         return true;
     }
 
+    /** Record that the labels of a direction are computed with these multipliers. */
+    void set_labels_up_to_date(
+            Direction direction,
+            const std::vector<double>& multipliers)
+    {
+        int d = (direction == Direction::Forward)? 0: 1;
+        labels_valid_[d] = true;
+        labels_multipliers_[d] = multipliers;
+    }
+
+    /** Record that the labels are not valid anymore (states removed). */
+    void invalidate_labels()
+    {
+        labels_valid_[0] = false;
+        labels_valid_[1] = false;
+    }
+
     /** Remove the states that are not on a path from the source to the sink. */
     void clean();
 
@@ -394,7 +473,7 @@ private:
      * Private attributes.
      */
 
-    const Problem* problem_;
+    std::shared_ptr<const Problem> problem_;
 
     Mask modifiers_;
 
@@ -417,6 +496,18 @@ private:
     std::vector<int64_t> bucket_starts_;
 
     Direction labels_direction_ = Direction::Forward;
+
+    /** Multipliers of the labels of each direction (forward, backward). */
+    std::vector<double> labels_multipliers_[2];
+
+    /** True if the labels of each direction are valid for labels_multipliers_. */
+    bool labels_valid_[2] = {false, false};
+
+    /** See restricted(). */
+    bool restricted_ = false;
+
+    /** See cutoff(). */
+    double cutoff_ = INF;
 
     /** Labels by bucket, for the dynamic programming without modifiers. */
     std::vector<Labels> dense_labels_;

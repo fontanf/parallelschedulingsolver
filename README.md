@@ -48,7 +48,7 @@ python scripts/visualize.py solution.json
 
 ## Benchmarks
 
-The benchmark instances are listed in the CSV files `data/data_<problem>.csv`, with their format, the time limit, the best known solution value and bound, and the results reported in the literature. They are downloaded with `scripts/download_data.py` (for example `--archives tanaka2008`).
+The benchmark instances are listed in the CSV files `data/data_<problem>.csv`, with their format, the time limit, the best known solution value and bound, and the results reported in the literature. They are downloaded with `scripts/download_data.py` (for example `--archives tanaka2008`). Their origin and generation are described in [`doc/benchmarks.md`](doc/benchmarks.md).
 
 | Benchmark | Problem | Instances | CSV file |
 | --- | --- | --- | --- |

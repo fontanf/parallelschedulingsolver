@@ -15,11 +15,33 @@ Status: **planned**, **in progress** or **done** (with the `--algorithm` option)
   * Planned: replacing the multi-start by a population-based iterated local search, as in shopschedulingsolver.
   * Missing benchmarks: the $P \mid\mid \sum w_j T_j$ instances of Rodrigues et al. (2008) and the $R \mid\mid \sum w_j T_j$ instances of Şen and Bülbül (2015).
 
+## Relaxation refinement framework
+
+**Planned**: split [successive sublimation dynamic programming](successive_sublimation_dynamic_programming.md) into independent algorithms, so that several published methods become configurations of the same components:
+* Problem variant: a rejection cost for each job (infinite by default, i.e. the job is mandatory), with the objective $\sum w_j T_j + \sum e_j$ (or $\sum w_j C_j + \sum e_j$), supported by the brute force for the tests. With the rejection costs equal to the Lagrangian multipliers of the constraints "each job exactly once", it is the Lagrangian subproblem where each job is processed at most once.
+* Dynamic programming algorithm on the time-expanded network for the single machine problem with rejection costs, with a relaxation level:
+  * (LR1): jobs processed any number of times (weighted stable set on an interval graph without setup times);
+  * (LR2): no job processed twice in three successive nodes;
+  * state-space modifiers on a set of jobs $\mathcal{M}$ (each job of $\mathcal{M}$ at most once), up to $\mathcal{M} = \mathcal{N}$ (exact).
+
+  Exact mode: pruning by upper bound and interval branching when the memory is not sufficient. Idle time and release dates (idle arcs, Tanaka and Fujikuma, 2012). The limit of 127 jobs only applies with modifiers.
+
+  To keep the performance of the current implementation, the algorithm takes optional structures as input and outputs them: the reduced network (states eliminated by the upper bound stay eliminated across calls), the labels of both directions (used to generate the network of the next set $\mathcal{M}$ from the previous one), and the time windows of constraint propagation.
+* Lagrangian relaxation (conjugate subgradient) and column generation (columngenerationsolver) as independent algorithms using this pricing algorithm, for single and parallel machines. On a single machine, the master selects a single column, so the constraints "each job exactly once" can be moved entirely into the subproblem; on parallel machines they link the columns, and only "at most once on each machine" can be (as ng-routes in vehicle routing).
+* Relaxation refinement algorithm: the multipliers (Lagrangian relaxation or column generation), then the refinement of the relaxation, with a cutoff (the bound to prove, e.g. the upper bound minus one, or the tentative upper bound of stage 2) and early termination parameters: maximum memory, maximum number of refinement steps, time limit, and a tailing-off rule on the bound improvement per network growth. Output: the bound, whether the cutoff is proved, a solution, and the structures needed to branch (the current network and its number of states by job and time) and to warm start the children (multipliers, network).
+* Tree search algorithm calling the relaxation refinement algorithm at each node, and setting its early termination parameters: a node restricts the completion times of some jobs (interval branching), and the network of a child is the restriction of the network of its parent. The choice between refining (adding jobs to $\mathcal{M}$) and branching is then given by these parameters; currently, refinement while the memory is sufficient. Possibly with the multipliers re-optimized at each node, as in branch-and-price. The loop of stage 2 on the tentative upper bound is an iterative deepening on the cutoff.
+
+Published methods as configurations:
+* Avella, Boccia and D'Auria (2005): Lagrangian relaxation + (LR1) + Lagrangian heuristic, with idle time.
+* Tanaka, Fujikuma and Araki (2009), Tanaka and Fujikuma (2012), Tanaka and Araki (2013): Lagrangian relaxation or column generation + (LR2), then refinement with state-space modifiers.
+* Pessoa et al. (2010): column generation on parallel machines, with branching.
+
 ## Single machine
 
 $1 \mid r_j \mid \sum w_j C_j$
 * **Planned**: P. Avella, M. Boccia and B. D'Auria (2005). Near-optimal solutions of large-scale single-machine scheduling problems. *INFORMS Journal on Computing*, 17(2), 183–191. [doi:10.1287/ijoc.1040.0069](https://doi.org/10.1287/ijoc.1040.0069)
   * Lagrangian heuristic on the time-indexed formulation: relaxing the job constraints gives a weighted stable set problem on an interval graph, solved by dynamic programming. It builds on the time-indexed model of `milp-time-indexed` (and can use its normal instants).
+  * The relaxation (LR1) of the [relaxation refinement framework](#relaxation-refinement-framework), without refinement; requires idle time and release dates in the network, and stage 1 without the limit of 127 jobs.
 
 $1 \mid\mid \sum w_j T_j$
 * **Suggested**: R. K. Congram, C. N. Potts and S. L. van de Velde (2002). An iterated dynasearch algorithm for the single-machine total weighted tardiness scheduling problem. *INFORMS Journal on Computing*, 14(1), 52–67. [doi:10.1287/ijoc.14.1.52.7712](https://doi.org/10.1287/ijoc.14.1.52.7712)

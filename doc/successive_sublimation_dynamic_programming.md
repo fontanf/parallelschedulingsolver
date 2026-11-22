@@ -23,8 +23,8 @@ Then, the constraints are recovered for a growing set of jobs $\mathcal{M}$ with
 ### Stage 1: multipliers
 
 The multipliers are adjusted either by:
-* column generation (Section 5.2 of the paper, default): the Lagrangian dual is solved as the LP $\max \sum_i \mu_i + \lambda$ s.t. $L(\mathcal{P}) - \sum_i \mu_i V_i(\mathcal{P}) \ge \lambda$ for the generated paths $\mathcal{P}$, with HiGHS, and the dynamic programming as pricing problem. The dual is stabilized by Wentges smoothing with the multipliers of the best lower bound ($\alpha = 0.5$, with the mispricing rule of Pessoa et al., 2010). The first path is the initial upper bound solution, and the first multipliers are 0;
-* the conjugate subgradient algorithm (Section 3.4.1, `--column-generation 0`, and always without HiGHS), with the step size control of Tanaka and Fujikuma (2012) and their parameters for stage 1: $(\gamma^{\text{ini}}, \delta_T, \delta_S, \epsilon, \kappa_S, \kappa_E) = (1.2, n, 2, 0.02, 0.95, 1.1)$.
+* column generation (Section 5.2 of the paper, default): the Lagrangian dual is solved as the LP $\max \sum_i \mu_i + \lambda$ s.t. $L(\mathcal{P}) - \sum_i \mu_i V_i(\mathcal{P}) \ge \lambda$ for the generated paths $\mathcal{P}$ (the dual of the master problem $\min \sum_{\mathcal{P}} L(\mathcal{P}) x_{\mathcal{P}}$ s.t. $\sum_{\mathcal{P}} V_i(\mathcal{P}) x_{\mathcal{P}} = 1$ for each job $i$ and $\sum_{\mathcal{P}} x_{\mathcal{P}} = 1$), with [columngenerationsolver](https://github.com/fontanf/columngenerationsolver) (HiGHS, or CLP), and the dynamic programming as pricing problem. The dual is stabilized by Wentges smoothing with the multipliers of the best lower bound as stability center ($\alpha = 0.5$, with the mispricing rule of Pessoa et al., 2010). The first paths are the initial upper bound solution and the solution of the relaxation for the multipliers equal to 0;
+* the conjugate subgradient algorithm (Section 3.4.1, `--column-generation 0`, and always without LP solver), with the step size control of Tanaka and Fujikuma (2012) and their parameters for stage 1: $(\gamma^{\text{ini}}, \delta_T, \delta_S, \epsilon, \kappa_S, \kappa_E) = (1.2, n, 2, 0.02, 0.95, 1.1)$.
 
 The network is reduced every time the best lower bound or the upper bound is updated. The algorithm stops if the gap between the bounds is smaller than one.
 
@@ -70,7 +70,7 @@ A job $i$ with $w_i = 0$ (or without due date) satisfying $s_{ji} + p_i + s_{ik}
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--column-generation` | 1 | Stage 1 by column generation (requires HiGHS) instead of the conjugate subgradient |
+| `--column-generation` | 1 | Stage 1 by column generation (requires HiGHS or CLP) instead of the conjugate subgradient |
 | `--constraint-propagation` | 1 | Network reduction by constraint propagation |
 | `--interval-branching` | 1 | Branching when the memory is not sufficient |
 | `--maximum-memory` | 2048 | Memory for the networks (MB) |
@@ -90,12 +90,12 @@ python3 scripts/run_benchmarks.py single_twt_setup_times_cicirello2003 successiv
 
 | Instances | Due dates | Optimal | Mean time (s) | Max time (s) | Paper: mean / max time (s) |
 | --- | --- | --- | --- | --- | --- |
-| 41–80 | moderate | 40 / 40 | 227 | 447 | 164 / 302 |
-| 81–120 | tight | 40 / 40 | 254 | 398 | 178 / 312 |
+| 41–80 | moderate | 40 / 40 | 249 | 611 | 164 / 302 |
+| 81–120 | tight | 40 / 40 | 272 | 432 | 178 / 312 |
 
-All the optimal values are those of Tanaka and Araki (2013). The times are about 1.4 times those of the paper (median ratio), on a different computer (Intel Core i7 980X, 512 MB for the networks, in the paper). 78 instances are solved in stage 2, and one needs interval branching.
+All the optimal values are those of Tanaka and Araki (2013). The mean times are about 1.5 times those of the paper, on a different computer (Intel Core i7 980X, 512 MB for the networks, in the paper); the mean times vary by up to 20% between two benchmarks of the same version, with 4 runs in parallel. 78 instances are solved in stage 2, without interval branching. With a column generation written directly with HiGHS, run in parallel with these runs, the total time is 1.8% larger (21,224 s against 20,851 s).
 
-The instances 1 to 40 (loose due dates) are much harder: the paper solves them with the improvements of Section 5, in up to several weeks for two of them; 22 have an optimal value of 0. A sample, with a time limit of 1800 s, 3 runs in parallel:
+The instances 1 to 40 (loose due dates) are much harder: the paper solves them with the improvements of Section 5, in up to several weeks for two of them; 22 have an optimal value of 0. A sample, with a time limit of 1800 s, 3 runs in parallel (with the column generation written directly with HiGHS):
 
 | Instance | Optimal value | Value | Bound | Time (s) | Branching depth |
 | --- | --- | --- | --- | --- | --- |

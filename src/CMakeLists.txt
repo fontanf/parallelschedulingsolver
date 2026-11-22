@@ -31,6 +31,7 @@ if(PARALLELSCHEDULINGSOLVER_BUILD_MAIN)
         ParallelSchedulingSolver_milp_assignment
         ParallelSchedulingSolver_milp_positional
         ParallelSchedulingSolver_brute_force
+        ParallelSchedulingSolver_successive_sublimation_dynamic_programming
         Boost::program_options
         Boost::filesystem)
     set_target_properties(ParallelSchedulingSolver_main PROPERTIES OUTPUT_NAME "parallelschedulingsolver")

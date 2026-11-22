@@ -10,6 +10,7 @@
 #include "parallelschedulingsolver/algorithms/milp_assignment.hpp"
 #include "parallelschedulingsolver/algorithms/milp_positional.hpp"
 #include "parallelschedulingsolver/algorithms/brute_force.hpp"
+#include "parallelschedulingsolver/algorithms/successive_sublimation_dynamic_programming.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -111,6 +112,27 @@ Output run(
             parameters.maximum_number_of_candidates = vm["maximum-number-of-candidates"].as<Counter>();
         return brute_force(instance, parameters);
 
+    } else if (algorithm == "successive-sublimation-dynamic-programming") {
+        SuccessiveSublimationDynamicProgrammingParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("column-generation"))
+            parameters.column_generation = vm["column-generation"].as<bool>();
+        if (vm.count("constraint-propagation"))
+            parameters.constraint_propagation = vm["constraint-propagation"].as<bool>();
+        if (vm.count("interval-branching"))
+            parameters.interval_branching = vm["interval-branching"].as<bool>();
+        if (vm.count("maximum-memory"))
+            parameters.maximum_memory = vm["maximum-memory"].as<double>();
+        if (vm.count("initial-local-search-restarts"))
+            parameters.initial_local_search_number_of_restarts = vm["initial-local-search-restarts"].as<Counter>();
+        if (vm.count("lagrangian-heuristic-local-search"))
+            parameters.lagrangian_heuristic_local_search = vm["lagrangian-heuristic-local-search"].as<bool>();
+        if (vm.count("minimum-branching-depth"))
+            parameters.minimum_branching_depth = vm["minimum-branching-depth"].as<Counter>();
+        if (vm.count("maximum-number-of-stage-1-iterations"))
+            parameters.maximum_number_of_stage_1_iterations = vm["maximum-number-of-stage-1-iterations"].as<Counter>();
+        return successive_sublimation_dynamic_programming(instance, parameters);
+
     } else if (algorithm == "local-search") {
         LocalSearchParameters parameters;
         read_args(parameters, vm);
@@ -173,6 +195,14 @@ int main(int argc, char *argv[])
         ("log,l", po::value<std::string>(), "Log path")
         ("time-limit,t", po::value<double>(), "Time limit in seconds")
         ("seed,s", po::value<Seed>(), "Seed (used by the local search)")
+        ("column-generation,", po::value<bool>(), "successive sublimation dynamic programming: stage 1 by column generation")
+        ("constraint-propagation,", po::value<bool>(), "successive sublimation dynamic programming: network reduction by constraint propagation")
+        ("interval-branching,", po::value<bool>(), "successive sublimation dynamic programming: interval branching")
+        ("maximum-memory,", po::value<double>(), "successive sublimation dynamic programming: maximum memory for the networks (MB)")
+        ("initial-local-search-restarts,", po::value<Counter>(), "successive sublimation dynamic programming: restarts of the initial local search")
+        ("lagrangian-heuristic-local-search,", po::value<bool>(), "successive sublimation dynamic programming: local search in the Lagrangian heuristic")
+        ("minimum-branching-depth,", po::value<Counter>(), "successive sublimation dynamic programming: minimum depth of the interval branching")
+        ("maximum-number-of-stage-1-iterations,", po::value<Counter>(), "successive sublimation dynamic programming: maximum number of iterations of stage 1")
         ("maximum-number-of-candidates,", po::value<Counter>(), "brute force: maximum number of candidates")
         ("maximum-number-of-restarts,", po::value<Counter>(), "local search: maximum number of restarts")
         ("maximum-number-of-perturbations-without-improvement,", po::value<Counter>(), "local search: maximum number of consecutive perturbations without improvement in a restart")

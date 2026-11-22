@@ -52,8 +52,8 @@ $P \mid\mid \sum w_j T_j$, $R \mid\mid \sum w_j T_j$ (exact)
 ## Sequence-dependent setup times
 
 $1 \mid s_{ij} \mid \sum w_j T_j$ (exact)
-* **Suggested**: S. Tanaka and M. Araki (2013). An exact algorithm for the single-machine total weighted tardiness problem with sequence-dependent setup times. *Computers & Operations Research*, 40(1), 344–352. [doi:10.1016/j.cor.2012.07.004](https://doi.org/10.1016/j.cor.2012.07.004)
-  * Successive sublimation dynamic programming, which solves all the instances of Cicirello (2003).
+* **Implemented**: S. Tanaka and M. Araki (2013), [successive sublimation dynamic programming](successive_sublimation_dynamic_programming.md).
+  * Node compression (Section 3.2.3), and the modified and iterated dynasearch for the upper bounds (Sections 3.3 and 5.3), are not implemented.
 * Benchmark: the instances of Cicirello (2003), `single_twt_setup_times_cicirello2003`.
 
 $1 \mid s_{ij} \mid \sum w_j T_j$

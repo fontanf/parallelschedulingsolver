@@ -1,12 +1,30 @@
 # Benchmark instances
 
-The benchmark instances of the repository, with their origin, the problems they were designed for, and how they were generated. They are listed in the CSV files `data/data_<problem>.csv`, with their format, a time limit, the best known solution value and bound, and the results reported in the literature, and are downloaded with `scripts/download_data.py` (the archives are listed in `data/data.json`). The benchmarks are run with `scripts/run_benchmarks.py` (see the [README](../README.md)).
+The benchmark instances of the repository, with their origin, the problems they were designed for, and how they were generated. They are listed in the CSV files `data/data_<problem>.csv`, with their format, a time limit, the best known solution value and bound, and the results reported in the literature.
 
-| Benchmark | Problem | Instances | Jobs | Machines | Reference values |
-| --- | --- | --- | --- | --- | --- |
-| `identical_tt_tanaka2008` | $P \mid\mid \sum T_j$ | 2,250 | 20, 25 | 2 to 10 | optimal (all) |
-| `single_twt_setup_times_cicirello2003` | $1 \mid s_{ij} \mid \sum w_j T_j$ | 120 | 60 | 1 | optimal (all) |
-| `unrelated_makespan_setup_times_vallada2011` | $R \mid s_{ijk} \mid C_{\max}$ | 1,640 | 6 to 250 | 2 to 30 | optimal (640 small), best known (1,000 large) |
+| Benchmark | Problem | Instances | Jobs | Machines | Reference values | CSV file |
+| --- | --- | --- | --- | --- | --- | --- |
+| `identical_tt_tanaka2008` | $P \mid\mid \sum T_j$ | 2,250 | 20, 25 | 2 to 10 | optimal (all) | `data/data_identical_tt.csv` |
+| `single_twt_setup_times_cicirello2003` | $1 \mid s_{ij} \mid \sum w_j T_j$ | 120 | 60 | 1 | optimal (all) | `data/data_single_twt_setup_times.csv` |
+| `unrelated_makespan_setup_times_vallada2011` | $R \mid s_{ijk} \mid C_{\max}$ | 1,640 | 6 to 250 | 2 to 30 | optimal (640 small), best known (1,000 large) | `data/data_unrelated_makespan_setup_times.csv` |
+
+## Running the benchmarks
+
+Download the instances (the archives are listed in `data/data.json`):
+```shell
+python3 scripts/download_data.py --archives tanaka2008
+```
+
+Run an algorithm on a benchmark (the results are written in `benchmark_results/<benchmark>/<name>/`):
+```shell
+python3 scripts/run_benchmarks.py identical_tt_tanaka2008 local-search --name local-search_seed0 --options "--seed 0"
+```
+The time limits of the CSV file can be scaled with `--time-limit-factor`.
+
+Compare the runs with the reference values, per instance and per group of instances:
+```shell
+streamlit run scripts/process_benchmarks.py
+```
 
 The test instances, generated for the unit tests, are described in [tests.md](tests.md).
 

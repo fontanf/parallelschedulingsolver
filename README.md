@@ -2,6 +2,8 @@
 
 Research code for parallel scheduling problems.
 
+The benchmark instances and how to run the benchmarks are described in [`doc/benchmarks.md`](doc/benchmarks.md), and the tests in [`doc/tests.md`](doc/tests.md).
+
 ## Compilation
 
 ```shell
@@ -41,29 +43,11 @@ Instances are JSON files: the objective, the number of machines, and for each jo
 ```
 `setup_times[i][j]` is the setup time when job `j` is processed right after job `i` on the machine, and `initial_setup_times[j]` the setup time when `j` is its first job. The setup of a job is performed right before it, and may be performed before its release date. The algorithms that don't support setup times throw an exception on instances with setup times.
 
+A job can have a rejection cost (`"rejection_cost"`, absent if the job must be scheduled): it may then not be scheduled, and its rejection cost is added to the objective. Rejection costs are supported with the makespan, the total (weighted) flow time and the total (weighted) tardiness, and only by the brute force for now; the other algorithms throw an exception on instances with rejection costs.
+
 Visualize solution:
 ```shell
 python scripts/visualize.py solution.json
-```
-
-## Benchmarks
-
-The benchmark instances are listed in the CSV files `data/data_<problem>.csv`, with their format, the time limit, the best known solution value and bound, and the results reported in the literature. They are downloaded with `scripts/download_data.py` (for example `--archives tanaka2008`). Their origin and generation are described in [`doc/benchmarks.md`](doc/benchmarks.md).
-
-| Benchmark | Problem | Instances | CSV file |
-| --- | --- | --- | --- |
-| `identical_tt_tanaka2008` | $P \mid\mid \sum T_j$ | 2,250 instances of Tanaka and Araki (2008), with their optimal values | `data/data_identical_tt.csv` |
-| `single_twt_setup_times_cicirello2003` | $1 \mid s_{ij} \mid \sum w_j T_j$ | 120 instances of Cicirello (2003), with the optimal values of Tanaka and Araki (2013) | `data/data_single_twt_setup_times.csv` |
-| `unrelated_makespan_setup_times_vallada2011` | $R \mid s_{ijk} \mid C_{\max}$ | 640 small and 1,000 large instances of Vallada and Ruiz (2011), with the optimal values of the small instances and the best known values of the large instances given by the authors | `data/data_unrelated_makespan_setup_times.csv` |
-
-Run an algorithm on a benchmark (the results are written in `benchmark_results/<benchmark>/<name>/`):
-```shell
-python3 scripts/run_benchmarks.py identical_tt_tanaka2008 local-search --name local-search_seed0 --options "--seed 0"
-```
-
-Compare the runs with the reference values, per instance and per group of instances:
-```shell
-streamlit run scripts/process_benchmarks.py
 ```
 
 ## Implemented algorithms

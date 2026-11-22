@@ -9,6 +9,7 @@
 #include "parallelschedulingsolver/algorithms/local_search.hpp"
 #include "parallelschedulingsolver/algorithms/milp_assignment.hpp"
 #include "parallelschedulingsolver/algorithms/milp_positional.hpp"
+#include "parallelschedulingsolver/algorithms/brute_force.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -103,6 +104,13 @@ Output run(
         read_args(parameters, vm);
         return assignment_total_flow_time(instance, parameters);
 
+    } else if (algorithm == "brute-force") {
+        BruteForceParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("maximum-number-of-candidates"))
+            parameters.maximum_number_of_candidates = vm["maximum-number-of-candidates"].as<Counter>();
+        return brute_force(instance, parameters);
+
     } else if (algorithm == "local-search") {
         LocalSearchParameters parameters;
         read_args(parameters, vm);
@@ -165,6 +173,7 @@ int main(int argc, char *argv[])
         ("log,l", po::value<std::string>(), "Log path")
         ("time-limit,t", po::value<double>(), "Time limit in seconds")
         ("seed,s", po::value<Seed>(), "Seed (used by the local search)")
+        ("maximum-number-of-candidates,", po::value<Counter>(), "brute force: maximum number of candidates")
         ("maximum-number-of-restarts,", po::value<Counter>(), "local search: maximum number of restarts")
         ("maximum-number-of-perturbations-without-improvement,", po::value<Counter>(), "local search: maximum number of consecutive perturbations without improvement in a restart")
         ("only-write-at-the-end,e", "Only write output and certificate files at the end")

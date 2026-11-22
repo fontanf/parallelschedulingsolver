@@ -105,3 +105,12 @@ target_include_directories(ParallelSchedulingSolver_local_search PUBLIC
 target_link_libraries(ParallelSchedulingSolver_local_search PUBLIC
     ParallelSchedulingSolver_parallelschedulingsolver)
 add_library(ParallelSchedulingSolver::local_search ALIAS ParallelSchedulingSolver_local_search)
+
+add_library(ParallelSchedulingSolver_brute_force)
+target_sources(ParallelSchedulingSolver_brute_force PRIVATE
+    brute_force.cpp)
+target_include_directories(ParallelSchedulingSolver_brute_force PUBLIC
+    ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(ParallelSchedulingSolver_brute_force PUBLIC
+    ParallelSchedulingSolver_parallelschedulingsolver)
+add_library(ParallelSchedulingSolver::brute_force ALIAS ParallelSchedulingSolver_brute_force)

@@ -72,6 +72,10 @@ The algorithms planned next, in particular state-of-the-art ones, are listed in 
 
 Each algorithm has a page in [`doc/`](doc/) describing it, the problems it supports, the cases in which it is optimal and its guarantees. When an algorithm detects that the instance is one of the special cases in which it is optimal, it sets the bound to the value of its solution and the output reports `"Optimal": true`.
 
+### All problems
+
+* [Brute force](doc/brute_force.md) `--algorithm brute-force` (exact, very small instances only; gives the reference values of the tests)
+
 ### Single machine
 
 #### Objective makespan

@@ -124,10 +124,12 @@ For example, `test/algorithms/local_search_test.cpp` checks that the local searc
 ## Reference values
 
 The optimal values of the `.txt` files are computed by `scripts/solve_test_data.py`, never by the tested algorithm itself, with one of two methods:
-* brute force (`--criterion <criterion>`, or `--criterion objective` for the objective of each instance): all the sequences on one machine, and all the assignments with an optimal sequencing rule on parallel machines. With setup times, there is no such rule, so all the sequences of all the machines are enumerated, which also covers the total tardiness on parallel machines. Instances too large to enumerate are skipped. With `--criterion objective`, so are the instances whose objective brute force doesn't support on parallel machines (the total tardiness and the throughput); with an explicit criterion, the script fails on them.
+* brute force (`--criterion <criterion>`, or `--criterion objective` for the objective of each instance): the script runs the [brute force algorithm](brute_force.md) (`--algorithm brute-force`) on a copy of the instance whose objective is the criterion. For `number-of-on-time-jobs`, the copy is a throughput instance with unit weights. The brute force enumerates all the sequences of all the machines, or, on parallel machines without setup times, all the assignments with an optimal sequencing rule when there is one. Instances with more than `--maximum-number-of-candidates` candidates (default $10^6$) are skipped.
 * an algorithm that proves optimality (`--algorithm <algorithm>`), on the special cases where it is exact. For example, `assignment-total-flow-time` is exact for $R \mid\mid \sum C_j$ in polynomial time, so it gives the optimal values of instances too large for brute force, to test other algorithms on the same problem. Only the instances on which the algorithm reports `"Optimal": true` are written.
 
-The tests must stay fast: the instances of the tests of an exact algorithm whose running time grows quickly with the size of the instances should be solved in less than 1 s. `--keep-if-solved-by <algorithm>` only keeps the instances on which this algorithm proves the brute force value within `--time-limit`, for each set of arguments given with `--keep-if-solved-with`. The script fails if the algorithm proves a value different from the reference.
+The brute force is simple enough for its correctness to be easy to trust. Its own reference values come from other exact algorithms: the ones proved by the time-indexed MILP, kept with `--keep-if-solved-by brute-force` on the instances small enough for the brute force (`brute_force_test.txt`).
+
+The tests must stay fast: the instances of the tests of an exact algorithm whose running time grows quickly with the size of the instances should be solved in less than 1 s. `--keep-if-solved-by <algorithm>` only keeps the instances on which this algorithm proves optimality within `--time-limit`, for each set of arguments given with `--keep-if-solved-with`. The script fails if the algorithm proves a value different from the reference.
 
 The commands that generate the `.txt` files of the repository:
 ```shell
@@ -175,6 +177,9 @@ python3 scripts/solve_test_data.py --criterion objective --output test/algorithm
     data/test_{tft,twft,tt,twt}_{single,single_release_dates,identical,identical_equal_processing_times,unrelated}.txt
 python3 scripts/solve_test_data.py --criterion objective --output test/algorithms/local_search_setup_times_test.txt --instances \
     data/test_{tft,twft,tt,twt}_*setup_times.txt
+python3 scripts/solve_test_data.py --algorithm milp-time-indexed --time-limit 1 --output test/algorithms/brute_force_test.txt \
+    --keep-if-solved-by brute-force "--keep-if-solved-with=--maximum-number-of-candidates 100000" \
+    --instances data/test_*_{single,single_release_dates,identical,identical_equal_processing_times,unrelated}.txt
 python3 scripts/solve_test_data.py --algorithm milp-time-indexed --time-limit 10 --output test/algorithms/local_search_parallel_tardiness_test.txt --instances \
     data/test_tt_identical.txt \
     data/test_tt_identical_equal_processing_times.txt \
@@ -184,7 +189,7 @@ python3 scripts/solve_test_data.py --algorithm milp-time-indexed --time-limit 10
     data/test_twt_unrelated.txt
 ```
 
-Brute force doesn't support the total tardiness on parallel machines, so the reference values of `local_search_parallel_tardiness_test.txt` are the ones proved by the time-indexed MILP.
+The reference values of `local_search_parallel_tardiness_test.txt` are the ones proved by the time-indexed MILP, on the total tardiness instances on parallel machines, including the ones too large for brute force.
 
 For example, to get the optimal values of all the unrelated machines total flow time instances, including the ones too large to enumerate:
 ```shell

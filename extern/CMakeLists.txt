@@ -73,3 +73,10 @@ FetchContent_Declare(
     #SOURCE_DIR "${PROJECT_SOURCE_DIR}/../columngenerationsolver/"
     EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(columngenerationsolver)
+# columngenerationsolver sets the static MSVC runtime library (/MT) in its
+# own scope; build it with the runtime library of this project (/MD, as
+# googletest).
+if(MSVC)
+    set_target_properties(ColumnGenerationSolver_columngenerationsolver PROPERTIES
+        MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+endif()

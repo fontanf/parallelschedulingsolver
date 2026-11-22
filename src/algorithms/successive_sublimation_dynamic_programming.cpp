@@ -5,9 +5,8 @@
 #include "ssdp_network.hpp"
 #include "hungarian.hpp"
 
-#ifdef HIGHS_FOUND
-#include "Highs.h"
-#endif
+#include "columngenerationsolver/algorithms/column_generation.hpp"
+
 
 #include <algorithm>
 #include <cmath>
@@ -651,124 +650,169 @@ void SuccessiveSublimationDynamicProgramming::stage_1_conjugate_subgradient(
     }
 }
 
-void SuccessiveSublimationDynamicProgramming::stage_1_column_generation(
-        Network& network)
+namespace
 {
-#ifdef HIGHS_FOUND
-    JobId n = problem_.number_of_jobs;
 
-    // Dual of the restricted master problem: max sum mu_i + lambda s.t.
-    // sum_i V_i(P) mu_i + lambda <= L(P) for each generated path P.
-    Highs highs;
-    highs.setOptionValue("output_flag", false);
-    for (JobId job_id = 0; job_id <= n; ++job_id)
-        highs.addCol(1.0, -kHighsInf, kHighsInf, 0, nullptr, nullptr);
-    highs.changeObjectiveSense(ObjSense::kMaximize);
+/**
+ * Pricing solver of the column generation of stage 1: the dynamic
+ * programming of the relaxation (LR2).
+ *
+ * Master problem: min sum_P L(P) x_P s.t. sum_P V_i(P) x_P = 1 for each job
+ * i, sum_P x_P = 1. The duals of the job rows are the multipliers.
+ */
+class Stage1PricingSolver: public columngenerationsolver::PricingSolver
+{
 
-    std::vector<HighsInt> indices;
-    std::vector<double> values;
-    auto add_path = [&](const std::vector<JobId>& path, Time length)
+public:
+
+    using Evaluate = std::function<std::vector<JobId>(const std::vector<double>&)>;
+
+    Stage1PricingSolver(
+            const Problem& problem,
+            const Evaluate& evaluate,
+            const std::function<bool()>& end):
+        problem_(problem),
+        evaluate_(evaluate),
+        end_(end) { }
+
+    std::shared_ptr<const columngenerationsolver::Column> column(
+            const std::vector<JobId>& path) const
     {
+        JobId n = problem_.number_of_jobs;
         std::vector<double> occurrences(n, 0);
         for (JobId job_id: path)
             occurrences[job_id] += 1;
-        indices.clear();
-        values.clear();
-        for (JobId job_id = 0; job_id < n; ++job_id) {
-            if (occurrences[job_id] != 0) {
-                indices.push_back(job_id);
-                values.push_back(occurrences[job_id]);
-            }
-        }
-        indices.push_back(n);
-        values.push_back(1);
-        highs.addRow(-kHighsInf, (double)length, indices.size(), indices.data(), values.data());
-    };
-
-    // Initial path: a feasible solution, all the jobs once.
-    {
-        std::vector<JobId> path(n);
-        std::iota(path.begin(), path.end(), 0);
-        add_path(path, upper_bound_);
+        auto column = std::make_shared<columngenerationsolver::Column>();
+        column->objective_coefficient = problem_.sequence_cost(path);
+        for (JobId job_id = 0; job_id < n; ++job_id)
+            if (occurrences[job_id] != 0)
+                column->elements.push_back({job_id, occurrences[job_id]});
+        column->elements.push_back({n, 1});
+        return column;
     }
 
-    // Wentges smoothing with the multipliers of the best lower bound.
-    const double alpha = 0.5;
-    std::vector<double> center(n, 0);
-    std::vector<double> multipliers(n, 0);
+    virtual PricingOutput solve_pricing(
+            bool,
+            const std::vector<std::pair<std::shared_ptr<const columngenerationsolver::Column>, columngenerationsolver::Value>>&,
+            const std::vector<std::shared_ptr<const columngenerationsolver::BranchingDecision>>&,
+            const std::unordered_set<std::shared_ptr<const columngenerationsolver::Column>>&,
+            const std::vector<columngenerationsolver::Value>& duals,
+            const std::vector<std::pair<std::shared_ptr<const columngenerationsolver::Cut>, columngenerationsolver::Value>>&,
+            PricingType,
+            columngenerationsolver::Value) override
+    {
+        // The lower bounds are also computed and stored by 'evaluate_'.
+        PricingOutput output;
+        if (end_())
+            return output;
+        JobId n = problem_.number_of_jobs;
+        std::vector<double> multipliers(duals.begin(), duals.begin() + n);
+        std::vector<JobId> path = evaluate_(multipliers);
+        if (end_())
+            return output;
+        output.columns.push_back(column(path));
+        // Exact pricing: the reduced cost of the path is the smallest one.
+        double reduced_cost = problem_.sequence_cost(path) - duals[n];
+        for (JobId job_id: path)
+            reduced_cost -= duals[job_id];
+        output.overcost = reduced_cost;
+        return output;
+    }
 
-    // First center: multipliers equal to 0.
+private:
+
+    const Problem& problem_;
+
+    Evaluate evaluate_;
+
+    std::function<bool()> end_;
+
+};
+
+}
+
+void SuccessiveSublimationDynamicProgramming::stage_1_column_generation(
+        Network& network)
+{
+#if defined(HIGHS_FOUND) || defined(CLP_FOUND)
+    JobId n = problem_.number_of_jobs;
+    bool infeasible = false;
+
+    // Dynamic programming for some multipliers.
+    auto evaluate = [this, &network, &infeasible](
+            const std::vector<double>& multipliers)
     {
         network.compute_forward_labels(multipliers);
         double length = network.shortest_path_length(Direction::Forward, multipliers);
         if (length == INF) {
+            infeasible = true;
             update_lower_bound(INF, "stage 1");
-            return;
+            return std::vector<JobId>();
         }
+        double sum_of_multipliers = std::accumulate(multipliers.begin(), multipliers.end(), 0.0);
         std::vector<JobId> path = network.shortest_path(Direction::Forward, multipliers);
-        process_stage_1_iteration(network, multipliers, length, path);
-        add_path(path, problem_.sequence_cost(path));
+        process_stage_1_iteration(network, multipliers, length + sum_of_multipliers, path);
+        return path;
+    };
+    auto stop = [this, &infeasible]()
+    {
+        return infeasible
+            || end()
+            || output_.number_of_stage_1_iterations >= parameters_.maximum_number_of_stage_1_iterations;
+    };
+
+    columngenerationsolver::Model model;
+    model.objective_sense = optimizationtools::ObjectiveDirection::Minimize;
+    for (JobId job_id = 0; job_id <= n; ++job_id) {
+        columngenerationsolver::Row row;
+        row.lower_bound = 1;
+        row.upper_bound = 1;
+        row.coefficient_lower_bound = 0;
+        row.coefficient_upper_bound = (job_id < n)? n: 1;
+        model.rows.push_back(row);
+    }
+    auto pricing_solver = std::unique_ptr<Stage1PricingSolver>(
+            new Stage1PricingSolver(problem_, evaluate, stop));
+    Stage1PricingSolver& pricing_solver_ref = *pricing_solver;
+    model.pricing_solver = std::move(pricing_solver);
+
+    columngenerationsolver::ColumnGenerationParameters column_generation_parameters;
+    column_generation_parameters.verbosity_level = 0;
+    column_generation_parameters.timer = parameters_.timer;
+#if defined(HIGHS_FOUND)
+    column_generation_parameters.solver_name = columngenerationsolver::SolverName::Highs;
+#else
+    column_generation_parameters.solver_name = columngenerationsolver::SolverName::CLP;
+#endif
+    // Wentges smoothing with the multipliers of the best lower bound.
+    column_generation_parameters.static_wentges_smoothing_parameter = 0.5;
+    column_generation_parameters.wentges_smoothing_best_bound_center = true;
+
+    // Initial columns: the best known solution (all the jobs once, with the
+    // upper bound as cost; the order of the jobs doesn't matter for the
+    // master problem), and the solution of the relaxation for the
+    // multipliers equal to 0.
+    {
+        std::vector<JobId> path(n);
+        std::iota(path.begin(), path.end(), 0);
+        auto column = pricing_solver_ref.column(path);
+        auto column_copy = std::make_shared<columngenerationsolver::Column>(*column);
+        column_copy->objective_coefficient = upper_bound_;
+        column_generation_parameters.initial_columns.push_back(column_copy);
+    }
+    {
+        std::vector<JobId> path = evaluate(std::vector<double>(n, 0));
         if (end())
             return;
+        column_generation_parameters.initial_columns.push_back(pricing_solver_ref.column(path));
     }
 
-    for (Counter iteration = 0;
-            iteration < parameters_.maximum_number_of_stage_1_iterations;
-            ++iteration) {
-        if (end())
-            return;
-        highs.run();
-        if (highs.getModelStatus() != HighsModelStatus::kOptimal)
-            break;
-        const std::vector<double>& solution = highs.getSolution().col_value;
-        std::vector<double> multipliers_lp(solution.begin(), solution.begin() + n);
-        double lambda_lp = solution[n];
-
-        bool column_added = false;
-        bool converged = false;
-        for (Counter misprice = 0; !column_added && !converged; ++misprice) {
-            double alpha_k = (std::max)(0.0, 1.0 - (misprice + 1) * (1 - alpha));
-            for (JobId job_id = 0; job_id < n; ++job_id)
-                multipliers[job_id] = alpha_k * center[job_id] + (1 - alpha_k) * multipliers_lp[job_id];
-
-            network.compute_forward_labels(multipliers);
-            double length = network.shortest_path_length(Direction::Forward, multipliers);
-            if (length == INF) {
-                update_lower_bound(INF, "stage 1");
-                return;
-            }
-            double sum_of_multipliers = std::accumulate(multipliers.begin(), multipliers.end(), 0.0);
-            std::vector<JobId> path = network.shortest_path(Direction::Forward, multipliers);
-            Time path_length = problem_.sequence_cost(path);
-            bool improved = process_stage_1_iteration(
-                    network,
-                    multipliers,
-                    length + sum_of_multipliers,
-                    path);
-            if (improved)
-                center = multipliers;
-            if (end())
-                return;
-
-            // Reduced cost of the path for the multipliers of the LP.
-            double reduced_cost = path_length;
-            for (JobId job_id: path)
-                reduced_cost -= multipliers_lp[job_id];
-            if (reduced_cost < lambda_lp - TOLERANCE) {
-                add_path(path, path_length);
-                column_added = true;
-            } else if (alpha_k == 0) {
-                converged = true;
-            }
-        }
-        if (converged)
-            break;
-    }
+    columngenerationsolver::column_generation(model, column_generation_parameters);
 #else
     (void)network;
     throw std::invalid_argument(
             FUNC_SIGNATURE + ": "
-            "column generation requires HiGHS.");
+            "column generation requires an LP solver.");
 #endif
 }
 
@@ -1056,10 +1100,10 @@ void SuccessiveSublimationDynamicProgramming::run()
     output_.maximum_number_of_states = network.number_of_states();
     algorithm_formatter_.print(
             "stage 1 states " + std::to_string(network.number_of_states()));
-#ifdef HIGHS_FOUND
+#if defined(HIGHS_FOUND) || defined(CLP_FOUND)
     bool column_generation = parameters_.column_generation;
 #else
-    // Without HiGHS, the conjugate subgradient algorithm is used.
+    // Without LP solver, the conjugate subgradient algorithm is used.
     bool column_generation = false;
 #endif
     if (column_generation) {

@@ -123,5 +123,5 @@ target_include_directories(ParallelSchedulingSolver_successive_sublimation_dynam
     ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries(ParallelSchedulingSolver_successive_sublimation_dynamic_programming PUBLIC
     ParallelSchedulingSolver_local_search
-    MathOptSolversCMake::mathopt)
+    ColumnGenerationSolver::columngenerationsolver)
 add_library(ParallelSchedulingSolver::successive_sublimation_dynamic_programming ALIAS ParallelSchedulingSolver_successive_sublimation_dynamic_programming)

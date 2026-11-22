@@ -42,8 +42,9 @@ struct SuccessiveSublimationDynamicProgrammingParameters: Parameters
 {
     /**
      * Adjust the multipliers of stage 1 by column generation (Section 5.2 of
-     * the paper) instead of the conjugate subgradient algorithm. Without
-     * HiGHS, the conjugate subgradient algorithm is always used.
+     * the paper, with columngenerationsolver) instead of the conjugate
+     * subgradient algorithm. Without LP solver (HiGHS or CLP), the conjugate
+     * subgradient algorithm is always used.
      */
     bool column_generation = true;
 

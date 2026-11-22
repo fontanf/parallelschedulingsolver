@@ -53,3 +53,23 @@ FetchContent_Declare(
     #SOURCE_DIR "${PROJECT_SOURCE_DIR}/../mathoptsolverscmake/"
     EXCLUDE_FROM_ALL)
 FetchContent_MakeAvailable(mathoptsolverscmake)
+
+# Fetch fontanf/columngenerationsolver.
+set(COLUMNGENERATIONSOLVER_BUILD_EXAMPLES OFF)
+set(COLUMNGENERATIONSOLVER_BUILD_TEST OFF)
+if(PARALLELSCHEDULINGSOLVER_USE_CLP)
+    set(COLUMNGENERATIONSOLVER_USE_CLP ON)
+endif()
+if(PARALLELSCHEDULINGSOLVER_USE_HIGHS)
+    set(COLUMNGENERATIONSOLVER_USE_HIGHS ON)
+endif()
+if(PARALLELSCHEDULINGSOLVER_USE_XPRESS)
+    set(COLUMNGENERATIONSOLVER_USE_XPRESS ON)
+endif()
+FetchContent_Declare(
+    columngenerationsolver
+    GIT_REPOSITORY https://github.com/fontanf/columngenerationsolver.git
+    GIT_TAG 704f33920c57f435fdd9843ba3189b82caeb3e33
+    #SOURCE_DIR "${PROJECT_SOURCE_DIR}/../columngenerationsolver/"
+    EXCLUDE_FROM_ALL)
+FetchContent_MakeAvailable(columngenerationsolver)

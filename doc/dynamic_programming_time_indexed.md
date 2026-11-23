@@ -6,7 +6,7 @@ The dynamic programming of the [successive sublimation dynamic programming](succ
 
 ## Supported problems
 
-Single machine, without release dates, with or without sequence-dependent setup times, without rejection costs:
+Single machine, without release dates, with or without sequence-dependent setup times and rejection costs:
 * total weighted tardiness $1 \mid s_{ij} \mid \sum w_j T_j$;
 * total weighted completion time $1 \mid s_{ij} \mid \sum w_j C_j$.
 
@@ -17,6 +17,14 @@ At most 127 jobs (after the removal of the zero cost jobs).
 A schedule without idle time is a path in a time-expanded network: a node $v_{it}$ is the completion of job $i$ at time $t$, and an arc from $v_{j, t - s_{ji} - p_i}$ to $v_{it}$ means that job $i$ is processed right after job $j$. The constraints "each job is processed exactly once" are relaxed with Lagrangian multipliers $\mu_i$ (the length of an arc into $v_{it}$ is $f_i(t) - \mu_i$), except for the jobs of a set $\mathcal{M}$, which are processed exactly once on every path thanks to state-space modifiers: the nodes become $v^b_{it}$, where $b$ is the set of the jobs of $\mathcal{M}$ processed up to job $i$. The dynamic programming computes the shortest paths with the constraint that a job is not processed twice in three successive positions (relaxation (LR2) of Tanaka and Araki, 2013), from the source (forward labels) or to the sink (backward labels).
 
 The length of the shortest path plus $\sum_i \mu_i$ is a lower bound of the cost of the schedules of the network. With $\mathcal{M}$ containing all the jobs, the shortest path is an optimal schedule.
+
+### Rejection costs
+
+A job $i$ with a rejection cost $e_i$ may not be scheduled. The constraint "job $i$ is processed exactly once" becomes "job $i$ is processed exactly once, or rejected at cost $e_i$":
+* for a job not in $\mathcal{M}$, the relaxation either rejects it or processes it any number of times: the lower bound has the term $\min(0, e_i - \mu_i)$ in addition to $\mu_i$;
+* for a job of $\mathcal{M}$, the arc to the sink of a state $v^b_{it}$ costs $e_j - \mu_j$ for each job $j$ of $\mathcal{M}$ that can be rejected and is not in $b$; the arc exists only if $b$ contains all the jobs of $\mathcal{M}$ that must be scheduled.
+
+The lower bound is the length of the shortest path plus the constant term $\sum_i \mu_i + \sum_{i \notin \mathcal{M},\, e_i \ge 0} \min(0, e_i - \mu_i)$. The schedules may not process all the jobs, so the lower bound of the makespan is 0: the arcs to the sink start from all the nodes, and the empty schedule is a path. In the generation of a network from the previous one, the states are eliminated with the constant term and the costs of the arcs to the sink of the previous network, which give a lower bound of the paths of the new network. The constraint propagation, which assumes that all the jobs are scheduled, is not applied with rejection costs. The zero cost jobs that are removed (Section 5.1) are scheduled last: rejecting them can't be better.
 
 See [the SSDP documentation](successive_sublimation_dynamic_programming.md) for the details of the network, of its generation, of its reduction and of the constraint propagation.
 
@@ -47,7 +55,11 @@ From the command line, the algorithm computes the bound of (LR2) with multiplier
 
 ## Tests
 
-`test/algorithms/dynamic_programming_time_indexed_test.cpp`: the optimal values (brute force) of the single machine test instances of SSDP, with all the jobs in $\mathcal{M}$ at once, and with a chain of three calls ((LR2) with reduction and constraint propagation, then half of the jobs in $\mathcal{M}$ backward, then the other half forward, with a cutoff); the bound of (LR2) on the same instances; a restricted network, whose bound is not a bound of the instance; the memory limit; the unsupported instances.
+`test/algorithms/dynamic_programming_time_indexed_test.cpp`:
+* the optimal values (brute force) of the single machine test instances of SSDP, with all the jobs in $\mathcal{M}$ at once, and with a chain of three calls ((LR2) with reduction and constraint propagation, then half of the jobs in $\mathcal{M}$ backward, then the other half forward, with a cutoff);
+* the same, on the instances with at most 6 jobs with rejection costs for the jobs of even id, against the brute force;
+* with nonzero multipliers, with and without rejection costs, with the networks generated forward and backward: the bound is at most the optimal value with no job, half of the jobs and all the jobs in $\mathcal{M}$, and equal to it with all the jobs;
+* the bound of (LR2); a restricted network, whose bound is not a bound of the instance; the memory limit; all the jobs rejected (empty schedule); the unsupported instances.
 
 ## Source files
 

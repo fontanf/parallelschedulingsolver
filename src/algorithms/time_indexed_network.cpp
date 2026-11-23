@@ -194,7 +194,7 @@ void Network::compute_backward_labels(const std::vector<double>& multipliers)
                     dense_labels_[bucket]:
                     backward_labels_[state_id];
                 if (state.sink)
-                    labels.add(0, n);
+                    labels.add(sink_cost(state.mask, multipliers), n);
                 if (dense)
                     backward_labels_[state_id] = labels;
                 Mask mask = predecessor_mask(state.mask, job_id);
@@ -248,15 +248,19 @@ double Network::shortest_path_length(
 {
     const Problem& problem = *problem_;
     JobId n = problem.number_of_jobs;
-    double length = INF;
+    double length = empty_path_length(multipliers);
     for (int64_t bucket = 0; bucket < (int64_t)bucket_starts_.size() - 1; ++bucket) {
         for (int64_t state_id = bucket_starts_[bucket];
                 state_id < bucket_starts_[bucket + 1];
                 ++state_id) {
             const State& state = states_[state_id];
             if (direction == Direction::Forward) {
-                if (state.sink)
-                    length = (std::min)(length, forward_labels_[state_id].best);
+                if (state.sink) {
+                    length = (std::min)(
+                            length,
+                            forward_labels_[state_id].best
+                            + sink_cost(state.mask, multipliers));
+                }
             } else {
                 if (state.predecessors.get(n)) {
                     JobId job_id = bucket % n;
@@ -279,8 +283,10 @@ std::vector<JobId> Network::shortest_path(
     const Problem& problem = *problem_;
     JobId n = problem.number_of_jobs;
 
-    // Last state (forward) or first state (backward) of the path.
+    // Last state (forward) or first state (backward) of the path; the empty
+    // path if it is the shortest one.
     Endpoint endpoint;
+    endpoint.length = empty_path_length(multipliers);
     for (int64_t bucket = 0; bucket < (int64_t)bucket_starts_.size() - 1; ++bucket) {
         JobId job_id = bucket % n;
         Time t = bucket / n;
@@ -291,7 +297,7 @@ std::vector<JobId> Network::shortest_path(
             double length = INF;
             if (direction == Direction::Forward) {
                 if (state.sink)
-                    length = forward_labels_[state_id].best;
+                    length = forward_labels_[state_id].best + sink_cost(state.mask, multipliers);
             } else {
                 if (state.predecessors.get(n)) {
                     length = problem.cost(job_id, t) - multipliers[job_id]
@@ -472,8 +478,11 @@ void Network::reduce(
                 State& state = states_[state_id];
                 const Labels& forward = forward_labels_[state_id];
                 const Labels& backward = backward_labels_[state_id];
-                if (state.sink && forward.best + sum_of_multipliers > threshold)
+                if (state.sink
+                        && forward.best + sink_cost(state.mask, multipliers)
+                        + sum_of_multipliers > threshold) {
                     state.sink = false;
+                }
                 Mask mask = predecessor_mask(state.mask, job_id);
                 Mask predecessors = state.predecessors;
                 predecessors.for_each([&](JobId job_id_prev)
@@ -532,6 +541,9 @@ void Network::restrict(
 void Network::propagate_constraints()
 {
     const Problem& problem = *problem_;
+    // The consistency tests assume that all the jobs are scheduled.
+    if (problem.has_rejection_costs)
+        return;
     JobId n = problem.number_of_jobs;
     const std::vector<Time>& pp = problem.extended_processing_times;
 
@@ -869,11 +881,16 @@ bool Network::generate(
                         labels.add(candidates[pos].value, candidates[pos].job_id);
                         state.predecessors.set(candidates[pos].job_id);
                     }
-                    if (t >= problem.minimum_makespan && state.mask == modifiers) {
+                    // Arc to the sink: the jobs of M that must be scheduled
+                    // are processed.
+                    if (t >= problem.minimum_makespan
+                            && state.mask.contains(modifiers & problem.mandatory_jobs)) {
                         int64_t state_id_old = old_state(job_id, t, state.mask);
                         if (state_id_old != -1
                                 && states_[state_id_old].sink
-                                && labels.best + sum_of_multipliers <= threshold) {
+                                && labels.best
+                                + sink_cost(state.mask & modifiers_, multipliers)
+                                + sum_of_multipliers <= threshold) {
                             state.sink = true;
                         }
                     }
@@ -902,13 +919,40 @@ bool Network::generate(
                 double c = problem.cost(job_id, t) - multipliers[job_id];
                 candidates.clear();
 
-                // Arc to the sink.
+                // Arcs to the sink: for each state of the current network
+                // with an arc to the sink, the masks of the new network with
+                // the same jobs of the current M, and any subset of the new
+                // jobs of M containing the jobs that must be scheduled (and
+                // the job of the state).
                 if (t >= problem.minimum_makespan) {
-                    int64_t state_id_old = old_state(job_id, t, modifiers);
-                    if (state_id_old != -1
-                            && states_[state_id_old].sink
-                            && forward_labels_[state_id_old].best + sum_of_multipliers <= threshold) {
-                        candidates.push_back({modifiers, 0, n});
+                    Mask new_jobs = modifiers.minus(modifiers_);
+                    Mask required = new_jobs & problem.mandatory_jobs;
+                    if (new_jobs.get(job_id))
+                        required.set(job_id);
+                    std::vector<JobId> optional_jobs;
+                    new_jobs.minus(required).for_each([&optional_jobs](JobId j) { optional_jobs.push_back(j); });
+                    for (int64_t state_id_old = bucket_starts_[bucket];
+                            state_id_old < bucket_starts_[bucket + 1];
+                            ++state_id_old) {
+                        const State& state_old = states_[state_id_old];
+                        if (!state_old.sink
+                                || forward_labels_[state_id_old].best
+                                + sink_cost(state_old.mask, multipliers)
+                                + sum_of_multipliers > threshold) {
+                            continue;
+                        }
+                        for (uint64_t subset = 0;
+                                subset < ((uint64_t)1 << optional_jobs.size());
+                                ++subset) {
+                            Mask mask = state_old.mask | required;
+                            for (size_t pos = 0; pos < optional_jobs.size(); ++pos)
+                                if ((subset >> pos) & 1)
+                                    mask.set(optional_jobs[pos]);
+                            candidates.push_back({
+                                    mask,
+                                    new_network.sink_cost(mask, multipliers),
+                                    n});
+                        }
                     }
                 }
 
@@ -1011,11 +1055,6 @@ std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_pro
         const Instance& instance,
         bool remove_zero_cost_jobs)
 {
-    if (instance.has_rejection_costs()) {
-        throw std::invalid_argument(
-                FUNC_SIGNATURE + ": "
-                "rejection costs are not supported.");
-    }
     if (instance.number_of_machines() != 1) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -1096,6 +1135,7 @@ std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_pro
         problem.processing_times.push_back(job.processing_times[0]);
         problem.weights.push_back(job.weight);
         problem.due_dates.push_back(job.due_date);
+        problem.rejection_costs.push_back(job.rejection_cost);
     }
     JobId m = problem.instance_job_ids.size();
     problem.number_of_jobs = m;
@@ -1104,6 +1144,13 @@ std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_pro
                 FUNC_SIGNATURE + ": "
                 "at most 127 jobs are supported; "
                 "number of jobs: " + std::to_string(m) + ".");
+    }
+    for (JobId job_id = 0; job_id < m; ++job_id) {
+        if (problem.rejection_costs[job_id] >= 0) {
+            problem.has_rejection_costs = true;
+        } else {
+            problem.mandatory_jobs.set(job_id);
+        }
     }
     problem.setup_times.assign((m + 1) * m, 0);
     for (JobId job_id_1 = -1; job_id_1 < m; ++job_id_1) {
@@ -1157,7 +1204,10 @@ std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_pro
             setups_max -= costs_max[a][assignment_max[a]];
         }
     }
-    problem.minimum_makespan = sum_of_processing_times + setups_min;
+    // With rejection costs, the jobs may not all be scheduled.
+    problem.minimum_makespan = (problem.has_rejection_costs)?
+        0:
+        sum_of_processing_times + setups_min;
     problem.maximum_makespan = sum_of_processing_times + setups_max;
     return problem_pointer;
 }

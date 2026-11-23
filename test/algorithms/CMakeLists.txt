@@ -150,6 +150,7 @@ target_sources(ParallelSchedulingSolver_dynamic_programming_time_indexed_test PR
 target_link_libraries(ParallelSchedulingSolver_dynamic_programming_time_indexed_test
     ParallelSchedulingSolver_tests
     ParallelSchedulingSolver_dynamic_programming_time_indexed
+    ParallelSchedulingSolver_brute_force
     GTest::gtest_main)
 gtest_discover_tests(ParallelSchedulingSolver_dynamic_programming_time_indexed_test
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}

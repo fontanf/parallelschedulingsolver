@@ -42,12 +42,6 @@ const DynamicProgrammingTimeIndexedOutput parallelschedulingsolver::dynamic_prog
     AlgorithmFormatter algorithm_formatter(instance, parameters, output);
     algorithm_formatter.start("Dynamic programming, time-indexed");
 
-    if (instance.has_rejection_costs()) {
-        throw std::invalid_argument(
-                FUNC_SIGNATURE + ": "
-                "rejection costs are not supported.");
-    }
-
     // Problem and initial network.
     std::shared_ptr<Network> network = parameters.network;
     if (network == nullptr) {
@@ -86,7 +80,6 @@ const DynamicProgrammingTimeIndexedOutput parallelschedulingsolver::dynamic_prog
                 "number of multipliers: " + std::to_string(multipliers.size()) + "; "
                 "number of jobs of the problem: " + std::to_string(n) + ".");
     }
-    double sum_of_multipliers = std::accumulate(multipliers.begin(), multipliers.end(), 0.0);
     Direction direction = parameters.direction;
 
     // Restrictions of the completion times.
@@ -126,7 +119,7 @@ const DynamicProgrammingTimeIndexedOutput parallelschedulingsolver::dynamic_prog
                 new_modifiers,
                 direction,
                 multipliers,
-                sum_of_multipliers,
+                network->constant_term(multipliers),
                 parameters.cutoff,
                 parameters.maximum_memory * 1024 * 1024,
                 &parameters.timer);
@@ -144,7 +137,7 @@ const DynamicProgrammingTimeIndexedOutput parallelschedulingsolver::dynamic_prog
     if (parameters.reduction) {
         update_labels(*network, Direction::Forward, multipliers);
         update_labels(*network, Direction::Backward, multipliers);
-        network->reduce(multipliers, sum_of_multipliers, parameters.cutoff);
+        network->reduce(multipliers, network->constant_term(multipliers), parameters.cutoff);
     }
     if (parameters.constraint_propagation)
         network->propagate_constraints();
@@ -163,21 +156,26 @@ const DynamicProgrammingTimeIndexedOutput parallelschedulingsolver::dynamic_prog
     output.network = network;
     output.number_of_states = network->number_of_states();
     double length = network->shortest_path_length(direction, multipliers);
-    output.lagrangian_bound = (length == INF)? INF: length + sum_of_multipliers;
+    output.lagrangian_bound = (length == INF)? INF: length + network->constant_term(multipliers);
     if (length != INF)
         output.path = network->shortest_path(direction, multipliers);
     algorithm_formatter.print(
             "states " + std::to_string(network->number_of_states())
             + " lb " + std::to_string(output.lagrangian_bound));
 
-    // A path processing each job exactly once is a schedule.
+    // A path processing each job that must be scheduled exactly once, and
+    // the other jobs at most once, is a schedule (the other jobs are
+    // rejected).
     std::vector<JobId> occurrences(n, 0);
     for (JobId job_id: output.path)
         occurrences[job_id]++;
     bool feasible = (length != INF);
-    for (JobId job_id = 0; job_id < n; ++job_id)
-        if (occurrences[job_id] != 1)
+    for (JobId job_id = 0; job_id < n; ++job_id) {
+        if (occurrences[job_id] > 1)
             feasible = false;
+        if (occurrences[job_id] == 0 && problem.rejection_costs[job_id] < 0)
+            feasible = false;
+    }
     if (feasible) {
         algorithm_formatter.update_solution(
                 build_solution(instance, problem, output.path),

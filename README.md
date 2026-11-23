@@ -43,7 +43,7 @@ Instances are JSON files: the objective, the number of machines, and for each jo
 ```
 `setup_times[i][j]` is the setup time when job `j` is processed right after job `i` on the machine, and `initial_setup_times[j]` the setup time when `j` is its first job. The setup of a job is performed right before it, and may be performed before its release date. The algorithms that don't support setup times throw an exception on instances with setup times.
 
-A job can have a rejection cost (`"rejection_cost"`, absent if the job must be scheduled): it may then not be scheduled, and its rejection cost is added to the objective. Rejection costs are supported with the makespan, the total (weighted) flow time and the total (weighted) tardiness, and only by the brute force for now; the other algorithms throw an exception on instances with rejection costs.
+A job can have a rejection cost (`"rejection_cost"`, absent if the job must be scheduled): it may then not be scheduled, and its rejection cost is added to the objective. Rejection costs are supported with the makespan, the total (weighted) flow time and the total (weighted) tardiness, by the brute force and by the [time-indexed dynamic programming](doc/dynamic_programming_time_indexed.md) for now; the other algorithms throw an exception on instances with rejection costs.
 
 Visualize solution:
 ```shell

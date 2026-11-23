@@ -1,5 +1,6 @@
 #include "tests.hpp"
 #include "parallelschedulingsolver/algorithms/dynamic_programming_time_indexed.hpp"
+#include "parallelschedulingsolver/algorithms/brute_force.hpp"
 
 #include "parallelschedulingsolver/instance_builder.hpp"
 
@@ -71,6 +72,53 @@ Output chain_test(const Instance& instance)
     return dynamic_programming_time_indexed(instance, parameters_3);
 }
 
+
+/** Copy of an instance with rejection costs for the jobs of even id. */
+Instance with_rejection_costs(const Instance& instance)
+{
+    InstanceBuilder instance_builder;
+    instance_builder.set_objective(instance.objective());
+    instance_builder.set_number_of_machines(1);
+    JobId n = instance.number_of_jobs();
+    for (JobId job_id = 0; job_id < n; ++job_id) {
+        const Job& job = instance.job(job_id);
+        instance_builder.add_job();
+        instance_builder.set_job_processing_time(job_id, 0, job.processing_times[0]);
+        if (job.due_date >= 0)
+            instance_builder.set_job_due_date(job_id, job.due_date);
+        instance_builder.set_job_weight(job_id, job.weight);
+        if (job_id % 2 == 0)
+            instance_builder.set_job_rejection_cost(job_id, 5 + 23 * job_id);
+    }
+    if (instance.has_setup_times()) {
+        for (JobId job_id_1 = -1; job_id_1 < n; ++job_id_1)
+            for (JobId job_id_2 = 0; job_id_2 < n; ++job_id_2)
+                instance_builder.set_setup_time(0, job_id_1, job_id_2, instance.setup_time(0, job_id_1, job_id_2));
+    }
+    return instance_builder.build();
+}
+
+/** Small single machine test instances (at most 6 jobs), with rejection costs. */
+std::vector<Instance> rejection_costs_instances()
+{
+    std::vector<Instance> instances;
+    for (const TestInstancePath& files: get_test_instance_paths(
+                get_path({"test", "algorithms", "successive_sublimation_dynamic_programming_test.txt"}))) {
+        const Instance instance = get_instance(files);
+        if (instance.number_of_jobs() > 6)
+            continue;
+        instances.push_back(with_rejection_costs(instance));
+    }
+    return instances;
+}
+
+double brute_force_value(const Instance& instance)
+{
+    BruteForceParameters parameters;
+    parameters.verbosity_level = 0;
+    return brute_force(instance, parameters).solution.objective_value();
+}
+
 }
 
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ScheduleTest);
@@ -83,11 +131,6 @@ TEST(DynamicProgrammingTimeIndexed, UnsupportedInstances)
     EXPECT_THROW(dynamic_programming_time_indexed(makespan, default_parameters()), std::invalid_argument);
     Instance release_dates = build_instance(Objective::TotalTardiness, 1, {{{1}, 1, 1}});
     EXPECT_THROW(dynamic_programming_time_indexed(release_dates, default_parameters()), std::invalid_argument);
-    EXPECT_THROW(
-            dynamic_programming_time_indexed(
-                rejection_costs_instance(Objective::TotalTardiness),
-                default_parameters()),
-            std::invalid_argument);
 }
 
 TEST(DynamicProgrammingTimeIndexed, EmptyInstance)
@@ -145,6 +188,85 @@ TEST(DynamicProgrammingTimeIndexed, MemoryOut)
     DynamicProgrammingTimeIndexedOutput output = dynamic_programming_time_indexed(instance, parameters);
     EXPECT_TRUE(output.memory_out);
     EXPECT_FALSE(output.solution.feasible());
+}
+
+TEST(DynamicProgrammingTimeIndexed, RejectionCostsAllJobsRejected)
+{
+    // Rejecting both jobs (1 + 1) is better than scheduling them: the empty
+    // schedule.
+    Instance instance = build_instance(
+            Objective::TotalTardiness,
+            1,
+            {{{5}, 0, 2, 1, 1}, {{5}, 0, 3, 1, 1}});
+    DynamicProgrammingTimeIndexedParameters parameters = default_parameters();
+    parameters.all_jobs_in_modifiers = true;
+    DynamicProgrammingTimeIndexedOutput output = dynamic_programming_time_indexed(instance, parameters);
+    EXPECT_TRUE(output.path.empty());
+    EXPECT_TRUE(output.solution.feasible());
+    EXPECT_EQ(output.solution.number_of_rejected_jobs(), 2);
+    EXPECT_EQ(output.solution.objective_value(), 2);
+    EXPECT_EQ(output.bound(), 2);
+}
+
+TEST(DynamicProgrammingTimeIndexed, RejectionCostsExact)
+{
+    // With all the jobs in M, at once or with a chain of calls, the optimal
+    // value of the brute force.
+    std::vector<Instance> instances = rejection_costs_instances();
+    ASSERT_FALSE(instances.empty());
+    JobId number_of_rejected_jobs = 0;
+    for (const Instance& instance: instances) {
+        double optimal_value = brute_force_value(instance);
+        Output output = exact_test(instance);
+        EXPECT_EQ(output.solution.objective_value(), optimal_value);
+        EXPECT_EQ(output.bound(), optimal_value);
+        number_of_rejected_jobs += output.solution.number_of_rejected_jobs();
+        Output output_chain = chain_test(instance);
+        EXPECT_EQ(output_chain.solution.objective_value(), optimal_value);
+        EXPECT_EQ(output_chain.bound(), optimal_value);
+    }
+    // Some jobs are rejected in the optimal solutions.
+    EXPECT_GT(number_of_rejected_jobs, 0);
+}
+
+TEST(DynamicProgrammingTimeIndexed, LagrangianBoundsWithMultipliers)
+{
+    // With multipliers, the bound is at most the optimal value whatever the
+    // jobs of M, and equal to it with all the jobs in M; with and without
+    // rejection costs, with the network generated in both directions.
+    std::vector<Instance> instances = rejection_costs_instances();
+    for (const TestInstancePath& files: get_test_instance_paths(
+                get_path({"test", "algorithms", "successive_sublimation_dynamic_programming_test.txt"}))) {
+        const Instance instance = get_instance(files);
+        if (instance.number_of_jobs() <= 6)
+            instances.push_back(get_instance(files));
+    }
+    for (const Instance& instance: instances) {
+        double optimal_value = brute_force_value(instance);
+        std::shared_ptr<const Problem> problem = build_problem(instance);
+        JobId n = problem->number_of_jobs;
+        if (n == 0)
+            continue;
+        for (int k = 0; k < 3; ++k) {
+            std::vector<double> multipliers(n);
+            for (JobId job_id = 0; job_id < n; ++job_id)
+                multipliers[job_id] = ((job_id * 7 + k * 13) % 11 - 5) * 7.5;
+            for (JobId number_of_modifiers: {(JobId)0, n / 2, n})
+            for (Direction direction: {Direction::Forward, Direction::Backward}) {
+                DynamicProgrammingTimeIndexedParameters parameters = default_parameters();
+                parameters.multipliers = multipliers;
+                parameters.direction = direction;
+                for (JobId job_id = 0; job_id < number_of_modifiers; ++job_id)
+                    parameters.new_modifier_jobs.push_back(job_id);
+                DynamicProgrammingTimeIndexedOutput output = dynamic_programming_time_indexed(instance, parameters);
+                if (number_of_modifiers == n) {
+                    EXPECT_NEAR(output.lagrangian_bound, optimal_value, 1e-6);
+                } else {
+                    EXPECT_LE(output.lagrangian_bound, optimal_value + 1e-6);
+                }
+            }
+        }
+    }
 }
 
 // Optimal values computed by brute force.

@@ -85,6 +85,14 @@ struct Mask
 
     Mask operator&(const Mask& mask) const { return {{words[0] & mask.words[0], words[1] & mask.words[1]}}; }
 
+    Mask operator|(const Mask& mask) const { return {{words[0] | mask.words[0], words[1] | mask.words[1]}}; }
+
+    /** Elements of this mask that are not in 'mask'. */
+    Mask minus(const Mask& mask) const { return {{words[0] & ~mask.words[0], words[1] & ~mask.words[1]}}; }
+
+    /** True if all the elements of 'mask' are in this mask. */
+    bool contains(const Mask& mask) const { return mask.minus(*this).empty(); }
+
     /** Call f(job_id) for each element, in increasing order. */
     template <typename F>
     void for_each(F f) const
@@ -127,10 +135,22 @@ struct Problem
 
     std::vector<Time> due_dates;
 
+    /** Rejection costs; -1 if the job must be scheduled. */
+    std::vector<Time> rejection_costs;
+
+    /** True if some jobs can be rejected. */
+    bool has_rejection_costs = false;
+
+    /** Jobs that must be scheduled. */
+    Mask mandatory_jobs;
+
     /** Total weighted tardiness if true, total weighted completion time otherwise. */
     bool tardiness = true;
 
-    /** Lower bound of the makespan. */
+    /**
+     * Lower bound of the makespan; 0 if some jobs can be rejected (the
+     * empty schedule is then a path of the relaxation).
+     */
     Time minimum_makespan = 0;
 
     /** Upper bound of the makespan. */
@@ -268,6 +288,58 @@ public:
     const Mask& modifiers() const { return modifiers_; }
 
     Counter number_of_states() const { return states_.size(); }
+
+    /**
+     * Cost of the arc to the sink from a state with a given mask: the sum of
+     * the rejection costs minus the multipliers of the jobs of M that are not
+     * in the mask; INF if one of them must be scheduled.
+     */
+    double sink_cost(
+            const Mask& mask,
+            const std::vector<double>& multipliers) const
+    {
+        Mask not_processed = modifiers_.minus(mask);
+        if (not_processed.empty())
+            return 0;
+        if (!(problem_->mandatory_jobs & not_processed).empty())
+            return INF;
+        double cost = 0;
+        not_processed.for_each([&](JobId job_id)
+        {
+            cost += problem_->rejection_costs[job_id] - multipliers[job_id];
+        });
+        return cost;
+    }
+
+    /**
+     * Constant term of the lower bound of the paths: the sum of the
+     * multipliers, plus min(0, rejection cost - multiplier) for each job not
+     * in M that can be rejected.
+     */
+    double constant_term(const std::vector<double>& multipliers) const
+    {
+        double constant = 0;
+        for (JobId job_id = 0; job_id < problem_->number_of_jobs; ++job_id) {
+            constant += multipliers[job_id];
+            if (!modifiers_.get(job_id) && problem_->rejection_costs[job_id] >= 0) {
+                constant += (std::min)(
+                        0.0,
+                        problem_->rejection_costs[job_id] - multipliers[job_id]);
+            }
+        }
+        return constant;
+    }
+
+    /**
+     * Length of the empty path (from the source to the sink, without job);
+     * INF if it isn't a path of the network.
+     */
+    double empty_path_length(const std::vector<double>& multipliers) const
+    {
+        if (problem_->minimum_makespan > 0 || problem_->number_of_jobs == 0)
+            return INF;
+        return sink_cost(Mask(), multipliers);
+    }
 
     /** Number of states of each job. */
     std::vector<Counter> number_of_states_by_job() const;

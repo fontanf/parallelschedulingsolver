@@ -4,7 +4,8 @@
 
 #include "parallelschedulingsolver/algorithms/dynamic_programming_time_indexed.hpp"
 
-#include "columngenerationsolver/algorithms/column_generation.hpp"
+#include "parallelschedulingsolver/algorithms/lagrangian_relaxation.hpp"
+#include "parallelschedulingsolver/algorithms/column_generation.hpp"
 
 
 #include <algorithm>
@@ -97,11 +98,6 @@ private:
      * Stage 1.
      */
 
-    /** Reduce the network with the forward labels of the multipliers. */
-    void reduce(
-            const std::vector<double>& multipliers,
-            double threshold);
-
     /**
      * Call the dynamic programming algorithm, with the timer and the memory
      * limit of the parameters.
@@ -116,27 +112,17 @@ private:
     }
 
     /**
-     * Shortest path for some multipliers in the network of stage 1: compute
-     * the forward labels, and return the lower bound and the path.
+     * Stage 1: the multipliers, by column generation or Lagrangian
+     * relaxation (conjugate subgradient).
      */
-    double evaluate(
-            const std::vector<double>& multipliers,
-            std::vector<JobId>& path);
-
-    void stage_1_conjugate_subgradient();
-
-    void stage_1_column_generation();
+    void stage_1();
 
     /**
-     * Process the result of the dynamic programming for some multipliers:
-     * update the best lower bound, the multipliers of the best lower bound
-     * and the upper bound, and reduce the network if one of them is
-     * improved. Return true if the best lower bound is improved.
+     * Callback of each evaluation of the relaxation in stage 1: upper bound
+     * from the path, lower bound, Lagrangian heuristic every five iterations
+     * if the best lower bound has been updated.
      */
-    bool process_stage_1_iteration(
-            const std::vector<double>& multipliers,
-            double lower_bound,
-            const std::vector<JobId>& path);
+    Time stage_1_iteration(const LagrangianDualIteration& iteration);
 
     /*
      * Stage 2.
@@ -187,8 +173,6 @@ private:
 
     std::vector<double> best_multipliers_;
 
-    /** Upper bound at the last network reduction of stage 1. */
-    Time reduction_upper_bound_ = std::numeric_limits<Time>::max();
 
     /** Stage 1: the Lagrangian heuristic is to be applied. */
     bool heuristic_pending_ = false;
@@ -369,329 +353,82 @@ void SuccessiveSublimationDynamicProgramming::initial_upper_bound()
 /////////////////////////////////// Stage 1 ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-void SuccessiveSublimationDynamicProgramming::reduce(
-        const std::vector<double>& multipliers,
-        double threshold)
+Time SuccessiveSublimationDynamicProgramming::stage_1_iteration(
+        const LagrangianDualIteration& iteration)
 {
-    DynamicProgrammingTimeIndexedParameters parameters;
-    parameters.network = network_;
-    parameters.multipliers = multipliers;
-    parameters.cutoff = threshold;
-    parameters.reduction = true;
-    parameters.constraint_propagation = parameters_.constraint_propagation;
-    parameters.compute_bound = false;
-    dynamic_programming(parameters);
-    output_.maximum_number_of_states = (std::max)(
-            output_.maximum_number_of_states,
-            network_->number_of_states());
-}
-
-double SuccessiveSublimationDynamicProgramming::evaluate(
-        const std::vector<double>& multipliers,
-        std::vector<JobId>& path)
-{
-    DynamicProgrammingTimeIndexedParameters parameters;
-    parameters.network = network_;
-    parameters.multipliers = multipliers;
-    DynamicProgrammingTimeIndexedOutput output = dynamic_programming(parameters);
-    path = output.path;
-    return output.lagrangian_bound;
-}
-
-bool SuccessiveSublimationDynamicProgramming::process_stage_1_iteration(
-        const std::vector<double>& multipliers,
-        double lower_bound,
-        const std::vector<JobId>& path)
-{
-    output_.number_of_stage_1_iterations++;
-
+    output_.number_of_stage_1_iterations = iteration.iteration;
     // A path visiting each job exactly once is a feasible solution.
-    std::vector<JobId> occurrences(problem_->number_of_jobs, 0);
-    for (JobId job_id: path)
-        occurrences[job_id]++;
-    bool feasible = true;
-    for (JobId job_id = 0; job_id < problem_->number_of_jobs; ++job_id)
-        if (occurrences[job_id] != 1)
-            feasible = false;
-    if (feasible)
-        update_upper_bound(build_solution(path), "relaxation");
-
-    bool improved = false;
-    if (lower_bound > best_lower_bound_ + TOLERANCE) {
-        improved = true;
-        best_lower_bound_ = lower_bound;
-        best_multipliers_ = multipliers;
-        update_lower_bound(lower_bound, "stage 1");
+    if (iteration.feasible)
+        update_upper_bound(build_solution(iteration.path), "relaxation");
+    if (iteration.improved) {
+        update_lower_bound(iteration.lagrangian_bound, "stage 1");
         algorithm_formatter_.print(
-                "stage 1 it " + std::to_string(output_.number_of_stage_1_iterations)
-                + " lb " + std::to_string(lower_bound)
+                "stage 1 it " + std::to_string(iteration.iteration)
+                + " lb " + std::to_string(iteration.lagrangian_bound)
                 + " states " + std::to_string(network_->number_of_states()));
         heuristic_pending_ = true;
     }
     // Lagrangian heuristic every five iterations, if the best lower bound
     // has been updated.
     if (heuristic_pending_
-            && !feasible
+            && !iteration.feasible
             && !optimal()
-            && output_.number_of_stage_1_iterations >= last_heuristic_iteration_ + 5) {
+            && iteration.iteration >= last_heuristic_iteration_ + 5) {
         heuristic_pending_ = false;
-        last_heuristic_iteration_ = output_.number_of_stage_1_iterations;
-        lagrangian_heuristic(path, Direction::Forward);
+        last_heuristic_iteration_ = iteration.iteration;
+        lagrangian_heuristic(iteration.path, Direction::Forward);
     }
-    if (optimal())
-        return improved;
-
-    // Network reduction when the best lower bound or the upper bound is
-    // updated, with the forward labels of the current multipliers.
-    if (improved || upper_bound_ < reduction_upper_bound_) {
-        reduction_upper_bound_ = upper_bound_;
-        reduce(multipliers, upper_bound_ - 1 + TOLERANCE);
-        if (network_->number_of_states() == 0)
-            update_lower_bound(INF, "network reduction");
-    }
-    return improved;
+    return upper_bound_;
 }
 
-void SuccessiveSublimationDynamicProgramming::stage_1_conjugate_subgradient()
-{
-    JobId n = problem_->number_of_jobs;
-    std::vector<double> multipliers(n, 0);
-    std::vector<double> direction(n, 0);
-    double direction_norm = 0;
-    double step_size = parameters_.initial_step_size;
-    Counter termination_iterations = (parameters_.termination_iterations >= 0)?
-        parameters_.termination_iterations: n;
-    Counter iterations_without_improvement = 0;
-    double epsilon = parameters_.termination_epsilon;
-    std::vector<double> best_lower_bounds;
-    std::vector<double> gaps;
-
-    for (Counter iteration = 0;
-            iteration < parameters_.maximum_number_of_stage_1_iterations;
-            ++iteration) {
-        if (end())
-            return;
-
-        std::vector<JobId> path;
-        double lower_bound = evaluate(multipliers, path);
-        if (lower_bound == INF) {
-            update_lower_bound(INF, "stage 1");
-            return;
-        }
-        bool improved = process_stage_1_iteration(multipliers, lower_bound, path);
-        if (end())
-            return;
-
-        // Step size.
-        if (improved) {
-            step_size *= parameters_.expand_factor;
-            iterations_without_improvement = 0;
-        } else {
-            iterations_without_improvement++;
-            if (iterations_without_improvement >= parameters_.shrink_iterations) {
-                step_size *= parameters_.shrink_factor;
-                iterations_without_improvement = 0;
-            }
-        }
-
-        // Termination criterion.
-        best_lower_bounds.push_back(best_lower_bound_);
-        gaps.push_back(upper_bound_ - best_lower_bound_);
-        if ((Counter)best_lower_bounds.size() > termination_iterations) {
-            double lower_bound_old = best_lower_bounds[best_lower_bounds.size() - 1 - termination_iterations];
-            double gap_old = gaps[gaps.size() - 1 - termination_iterations];
-            if (best_lower_bound_ - lower_bound_old
-                    <= std::abs(lower_bound_old) * epsilon / (1 - epsilon)
-                    && gap_old - gaps.back() <= epsilon * gap_old) {
-                return;
-            }
-        }
-
-        // Subgradient and conjugate direction.
-        std::vector<double> subgradient(n, 1);
-        for (JobId job_id: path)
-            subgradient[job_id] -= 1;
-        double subgradient_norm = 0;
-        for (JobId job_id = 0; job_id < n; ++job_id)
-            subgradient_norm += subgradient[job_id] * subgradient[job_id];
-        subgradient_norm = std::sqrt(subgradient_norm);
-        if (subgradient_norm == 0) {
-            // The path is feasible: the multipliers are optimal.
-            return;
-        }
-        double ratio = (direction_norm > 0)? subgradient_norm / direction_norm: 0;
-        double norm_2 = 0;
-        for (JobId job_id = 0; job_id < n; ++job_id) {
-            direction[job_id] = subgradient[job_id] + ratio * direction[job_id];
-            norm_2 += direction[job_id] * direction[job_id];
-        }
-        direction_norm = std::sqrt(norm_2);
-        double step = step_size * ((double)upper_bound_ - lower_bound) / norm_2;
-        for (JobId job_id = 0; job_id < n; ++job_id)
-            multipliers[job_id] += step * direction[job_id];
-    }
-}
-
-namespace
-{
-
-/**
- * Pricing solver of the column generation of stage 1: the dynamic
- * programming of the relaxation (LR2).
- *
- * Master problem: min sum_P L(P) x_P s.t. sum_P V_i(P) x_P = 1 for each job
- * i, sum_P x_P = 1. The duals of the job rows are the multipliers.
- */
-class Stage1PricingSolver: public columngenerationsolver::PricingSolver
-{
-
-public:
-
-    using Evaluate = std::function<std::vector<JobId>(const std::vector<double>&)>;
-
-    Stage1PricingSolver(
-            const Problem& problem,
-            const Evaluate& evaluate,
-            const std::function<bool()>& end):
-        problem_(problem),
-        evaluate_(evaluate),
-        end_(end) { }
-
-    std::shared_ptr<const columngenerationsolver::Column> column(
-            const std::vector<JobId>& path) const
-    {
-        JobId n = problem_.number_of_jobs;
-        std::vector<double> occurrences(n, 0);
-        for (JobId job_id: path)
-            occurrences[job_id] += 1;
-        auto column = std::make_shared<columngenerationsolver::Column>();
-        column->objective_coefficient = problem_.sequence_cost(path);
-        for (JobId job_id = 0; job_id < n; ++job_id)
-            if (occurrences[job_id] != 0)
-                column->elements.push_back({job_id, occurrences[job_id]});
-        column->elements.push_back({n, 1});
-        return column;
-    }
-
-    virtual PricingOutput solve_pricing(
-            bool,
-            const std::vector<std::pair<std::shared_ptr<const columngenerationsolver::Column>, columngenerationsolver::Value>>&,
-            const std::vector<std::shared_ptr<const columngenerationsolver::BranchingDecision>>&,
-            const std::unordered_set<std::shared_ptr<const columngenerationsolver::Column>>&,
-            const std::vector<columngenerationsolver::Value>& duals,
-            const std::vector<std::pair<std::shared_ptr<const columngenerationsolver::Cut>, columngenerationsolver::Value>>&,
-            PricingType,
-            columngenerationsolver::Value) override
-    {
-        // The lower bounds are also computed and stored by 'evaluate_'.
-        PricingOutput output;
-        if (end_())
-            return output;
-        JobId n = problem_.number_of_jobs;
-        std::vector<double> multipliers(duals.begin(), duals.begin() + n);
-        std::vector<JobId> path = evaluate_(multipliers);
-        if (end_())
-            return output;
-        output.columns.push_back(column(path));
-        // Exact pricing: the reduced cost of the path is the smallest one.
-        double reduced_cost = problem_.sequence_cost(path) - duals[n];
-        for (JobId job_id: path)
-            reduced_cost -= duals[job_id];
-        output.overcost = reduced_cost;
-        return output;
-    }
-
-private:
-
-    const Problem& problem_;
-
-    Evaluate evaluate_;
-
-    std::function<bool()> end_;
-
-};
-
-}
-
-void SuccessiveSublimationDynamicProgramming::stage_1_column_generation()
+void SuccessiveSublimationDynamicProgramming::stage_1()
 {
 #if defined(HIGHS_FOUND) || defined(CLP_FOUND)
-    JobId n = problem_->number_of_jobs;
-    bool infeasible = false;
-
-    // Dynamic programming for some multipliers.
-    auto evaluate = [this, &infeasible](
-            const std::vector<double>& multipliers)
-    {
-        std::vector<JobId> path;
-        double lower_bound = this->evaluate(multipliers, path);
-        if (lower_bound == INF) {
-            infeasible = true;
-            update_lower_bound(INF, "stage 1");
-            return std::vector<JobId>();
-        }
-        process_stage_1_iteration(multipliers, lower_bound, path);
-        return path;
-    };
-    auto stop = [this, &infeasible]()
-    {
-        return infeasible
-            || end()
-            || output_.number_of_stage_1_iterations >= parameters_.maximum_number_of_stage_1_iterations;
-    };
-
-    columngenerationsolver::Model model;
-    model.objective_sense = optimizationtools::ObjectiveDirection::Minimize;
-    for (JobId job_id = 0; job_id <= n; ++job_id) {
-        columngenerationsolver::Row row;
-        row.lower_bound = 1;
-        row.upper_bound = 1;
-        row.coefficient_lower_bound = 0;
-        row.coefficient_upper_bound = (job_id < n)? n: 1;
-        model.rows.push_back(row);
-    }
-    auto pricing_solver = std::unique_ptr<Stage1PricingSolver>(
-            new Stage1PricingSolver(*problem_, evaluate, stop));
-    Stage1PricingSolver& pricing_solver_ref = *pricing_solver;
-    model.pricing_solver = std::move(pricing_solver);
-
-    columngenerationsolver::ColumnGenerationParameters column_generation_parameters;
-    column_generation_parameters.verbosity_level = 0;
-    column_generation_parameters.timer = parameters_.timer;
-#if defined(HIGHS_FOUND)
-    column_generation_parameters.solver_name = columngenerationsolver::SolverName::Highs;
+    bool use_column_generation = parameters_.column_generation;
 #else
-    column_generation_parameters.solver_name = columngenerationsolver::SolverName::CLP;
+    // Without LP solver, the conjugate subgradient algorithm is used.
+    bool use_column_generation = false;
 #endif
-    // Wentges smoothing with the multipliers of the best lower bound.
-    column_generation_parameters.static_wentges_smoothing_parameter = 0.5;
-    column_generation_parameters.wentges_smoothing_best_bound_center = true;
-
-    // Initial columns: the best known solution (all the jobs once, with the
-    // upper bound as cost; the order of the jobs doesn't matter for the
-    // master problem), and the solution of the relaxation for the
-    // multipliers equal to 0.
+    auto set_parameters = [this](LagrangianDualParameters& parameters)
     {
-        std::vector<JobId> path(n);
-        std::iota(path.begin(), path.end(), 0);
-        auto column = pricing_solver_ref.column(path);
-        auto column_copy = std::make_shared<columngenerationsolver::Column>(*column);
-        column_copy->objective_coefficient = upper_bound_;
-        column_generation_parameters.initial_columns.push_back(column_copy);
+        parameters.verbosity_level = 0;
+        parameters.timer = parameters_.timer;
+        parameters.network = network_;
+        parameters.upper_bound = upper_bound_;
+        parameters.constraint_propagation = parameters_.constraint_propagation;
+        parameters.maximum_number_of_iterations = parameters_.maximum_number_of_stage_1_iterations;
+        parameters.iteration_callback = [this](const LagrangianDualIteration& iteration)
+        {
+            return stage_1_iteration(iteration);
+        };
+    };
+    LagrangianDualOutput output(instance_);
+    if (use_column_generation) {
+        ColumnGenerationParameters parameters;
+        set_parameters(parameters);
+        output = column_generation(instance_, parameters);
+    } else {
+        LagrangianRelaxationParameters parameters;
+        set_parameters(parameters);
+        parameters.initial_step_size = parameters_.initial_step_size;
+        parameters.termination_iterations = parameters_.termination_iterations;
+        parameters.shrink_iterations = parameters_.shrink_iterations;
+        parameters.termination_epsilon = parameters_.termination_epsilon;
+        parameters.shrink_factor = parameters_.shrink_factor;
+        parameters.expand_factor = parameters_.expand_factor;
+        output = lagrangian_relaxation(instance_, parameters);
     }
-    {
-        std::vector<JobId> path = evaluate(std::vector<double>(n, 0));
-        if (end())
-            return;
-        column_generation_parameters.initial_columns.push_back(pricing_solver_ref.column(path));
+    best_lower_bound_ = output.lagrangian_bound;
+    best_multipliers_ = output.multipliers;
+    output_.maximum_number_of_states = (std::max)(
+            output_.maximum_number_of_states,
+            network_->number_of_states());
+    // No schedule better than the upper bound.
+    if (output.lagrangian_bound == INF
+            || (network_->number_of_states() == 0
+                && network_->empty_path_length(best_multipliers_) == INF)) {
+        update_lower_bound(INF, "stage 1");
     }
-
-    columngenerationsolver::column_generation(model, column_generation_parameters);
-#else
-    throw std::invalid_argument(
-            FUNC_SIGNATURE + ": "
-            "column generation requires an LP solver.");
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -960,17 +697,7 @@ void SuccessiveSublimationDynamicProgramming::run()
     output_.maximum_number_of_states = network_->number_of_states();
     algorithm_formatter_.print(
             "stage 1 states " + std::to_string(network_->number_of_states()));
-#if defined(HIGHS_FOUND) || defined(CLP_FOUND)
-    bool column_generation = parameters_.column_generation;
-#else
-    // Without LP solver, the conjugate subgradient algorithm is used.
-    bool column_generation = false;
-#endif
-    if (column_generation) {
-        stage_1_column_generation();
-    } else {
-        stage_1_conjugate_subgradient();
-    }
+    stage_1();
     if (end())
         return;
     multipliers_ = best_multipliers_;

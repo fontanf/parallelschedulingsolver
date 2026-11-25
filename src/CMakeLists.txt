@@ -33,6 +33,8 @@ if(PARALLELSCHEDULINGSOLVER_BUILD_MAIN)
         ParallelSchedulingSolver_brute_force
         ParallelSchedulingSolver_successive_sublimation_dynamic_programming
         ParallelSchedulingSolver_dynamic_programming_time_indexed
+        ParallelSchedulingSolver_lagrangian_relaxation
+        ParallelSchedulingSolver_column_generation
         Boost::program_options
         Boost::filesystem)
     set_target_properties(ParallelSchedulingSolver_main PROPERTIES OUTPUT_NAME "parallelschedulingsolver")

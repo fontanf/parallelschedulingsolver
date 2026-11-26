@@ -144,6 +144,17 @@ target_link_libraries(ParallelSchedulingSolver_column_generation PUBLIC
     ColumnGenerationSolver::columngenerationsolver)
 add_library(ParallelSchedulingSolver::column_generation ALIAS ParallelSchedulingSolver_column_generation)
 
+add_library(ParallelSchedulingSolver_relaxation_refinement)
+target_sources(ParallelSchedulingSolver_relaxation_refinement PRIVATE
+    relaxation_refinement.cpp)
+target_include_directories(ParallelSchedulingSolver_relaxation_refinement PUBLIC
+    ${PROJECT_SOURCE_DIR}/include)
+target_link_libraries(ParallelSchedulingSolver_relaxation_refinement PUBLIC
+    ParallelSchedulingSolver_dynamic_programming_time_indexed
+    ParallelSchedulingSolver_lagrangian_relaxation
+    ParallelSchedulingSolver_column_generation)
+add_library(ParallelSchedulingSolver::relaxation_refinement ALIAS ParallelSchedulingSolver_relaxation_refinement)
+
 add_library(ParallelSchedulingSolver_successive_sublimation_dynamic_programming)
 target_sources(ParallelSchedulingSolver_successive_sublimation_dynamic_programming PRIVATE
     successive_sublimation_dynamic_programming.cpp)
@@ -153,5 +164,6 @@ target_link_libraries(ParallelSchedulingSolver_successive_sublimation_dynamic_pr
     ParallelSchedulingSolver_local_search
     ParallelSchedulingSolver_dynamic_programming_time_indexed
     ParallelSchedulingSolver_lagrangian_relaxation
-    ParallelSchedulingSolver_column_generation)
+    ParallelSchedulingSolver_column_generation
+    ParallelSchedulingSolver_relaxation_refinement)
 add_library(ParallelSchedulingSolver::successive_sublimation_dynamic_programming ALIAS ParallelSchedulingSolver_successive_sublimation_dynamic_programming)

@@ -75,6 +75,14 @@ struct Mask
 
     bool empty() const { return words[0] == 0 && words[1] == 0; }
 
+    /** Number of elements. */
+    JobId size() const
+    {
+        JobId size = 0;
+        for_each([&size](JobId) { size++; });
+        return size;
+    }
+
     bool operator==(const Mask& mask) const { return words == mask.words; }
 
     bool operator!=(const Mask& mask) const { return words != mask.words; }

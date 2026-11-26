@@ -168,3 +168,15 @@ target_link_libraries(ParallelSchedulingSolver_lagrangian_dual_test
 gtest_discover_tests(ParallelSchedulingSolver_lagrangian_dual_test
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     PROPERTIES TIMEOUT 3600)
+
+add_executable(ParallelSchedulingSolver_relaxation_refinement_test)
+target_sources(ParallelSchedulingSolver_relaxation_refinement_test PRIVATE
+    relaxation_refinement_test.cpp)
+target_link_libraries(ParallelSchedulingSolver_relaxation_refinement_test
+    ParallelSchedulingSolver_tests
+    ParallelSchedulingSolver_relaxation_refinement
+    ParallelSchedulingSolver_brute_force
+    GTest::gtest_main)
+gtest_discover_tests(ParallelSchedulingSolver_relaxation_refinement_test
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+    PROPERTIES TIMEOUT 3600)

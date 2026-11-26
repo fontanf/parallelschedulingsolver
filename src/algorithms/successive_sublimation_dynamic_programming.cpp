@@ -6,6 +6,7 @@
 
 #include "parallelschedulingsolver/algorithms/lagrangian_relaxation.hpp"
 #include "parallelschedulingsolver/algorithms/column_generation.hpp"
+#include "parallelschedulingsolver/algorithms/relaxation_refinement.hpp"
 
 
 #include <algorithm>
@@ -38,8 +39,7 @@ public:
         instance_(instance),
         parameters_(parameters),
         output_(output),
-        algorithm_formatter_(algorithm_formatter),
-        maximum_memory_(parameters.maximum_memory * 1024 * 1024) { }
+        algorithm_formatter_(algorithm_formatter) { }
 
     void run();
 
@@ -150,8 +150,6 @@ private:
 
     AlgorithmFormatter& algorithm_formatter_;
 
-    double maximum_memory_;
-
     std::shared_ptr<const Problem> problem_;
 
     /** Network of stage 1. */
@@ -166,8 +164,6 @@ private:
 
     /** Multipliers and lower bound of stage 1. */
     std::vector<double> multipliers_;
-
-    double sum_of_multipliers_ = 0;
 
     double best_lower_bound_ = -INF;
 
@@ -439,137 +435,51 @@ Status SuccessiveSublimationDynamicProgramming::subprocedure(
         const std::shared_ptr<Network>& network,
         Time& tentative_upper_bound)
 {
-    JobId n = problem_->number_of_jobs;
-    const std::vector<double>& multipliers = multipliers_;
     output_.number_of_subprocedures++;
 
     // The network has the forward and backward labels of the multipliers.
-    double lower_bound = network->shortest_path_length(Direction::Forward, multipliers)
-        + sum_of_multipliers_;
-    double best_lower_bound = lower_bound;
-    std::vector<JobId> path = network->shortest_path(Direction::Forward, multipliers);
-
-    // Strategy for the choice of the modifiers: (S1) if the memory usage is
-    // small, (S2) otherwise.
-    bool strategy_1 = (network->memory() / maximum_memory_ < std::pow(2.0, -6));
-
-    std::shared_ptr<Network> network_old = network;
-    Direction direction = Direction::Forward;
-    Mask modifiers;
-    JobId number_of_modifiers = 0;
-
-    for (;;) {
-        if ((double)tentative_upper_bound - lower_bound < 1 - TOLERANCE)
-            return Status::Completed;
-        if (parameters_.timer.needs_to_end())
-            return Status::TimeOut;
-        if (number_of_modifiers == n) {
-            throw std::logic_error(
-                    FUNC_SIGNATURE + ": "
-                    "gap with all the jobs in M.");
-        }
-
-        // Number of jobs to add, from the memory usage.
-        double memory_ratio = network_old->memory() / maximum_memory_;
-        JobId number_of_new_modifiers = 3;
-        if (memory_ratio > std::pow(2.0, -2)) {
-            number_of_new_modifiers = 1;
-        } else if (memory_ratio > std::pow(2.0, -3)) {
-            number_of_new_modifiers = 2;
-        }
-
-        // Choice of the jobs.
-        std::vector<Counter> number_of_states = network_old->number_of_states_by_job();
-        std::vector<JobId> occurrences(n, 0);
-        for (JobId job_id: path)
-            occurrences[job_id]++;
-        auto by_number_of_states = [&number_of_states](JobId job_id_1, JobId job_id_2)
-        {
-            return number_of_states[job_id_1] < number_of_states[job_id_2];
-        };
-        std::vector<JobId> selected_job_ids;
-        if (strategy_1) {
-            std::vector<JobId> job_ids;
-            for (JobId job_id = 0; job_id < n; ++job_id)
-                if (!modifiers.get(job_id) && occurrences[job_id] == 0)
-                    job_ids.push_back(job_id);
-            std::stable_sort(job_ids.begin(), job_ids.end(), by_number_of_states);
-            for (JobId job_id: job_ids)
-                if ((JobId)selected_job_ids.size() < number_of_new_modifiers)
-                    selected_job_ids.push_back(job_id);
-            job_ids.clear();
-            for (JobId job_id = 0; job_id < n; ++job_id)
-                if (!modifiers.get(job_id) && occurrences[job_id] > 1)
-                    job_ids.push_back(job_id);
-            std::stable_sort(job_ids.begin(), job_ids.end(), by_number_of_states);
-            for (JobId job_id: job_ids)
-                if ((JobId)selected_job_ids.size() < number_of_new_modifiers)
-                    selected_job_ids.push_back(job_id);
-        }
-        if (selected_job_ids.empty()) {
-            // Strategy (S2), or no job violates the constraints in the path.
-            std::vector<JobId> job_ids;
-            for (JobId job_id = 0; job_id < n; ++job_id)
-                if (!modifiers.get(job_id))
-                    job_ids.push_back(job_id);
-            std::stable_sort(job_ids.begin(), job_ids.end(), by_number_of_states);
-            for (JobId job_id: job_ids)
-                if ((JobId)selected_job_ids.size() < number_of_new_modifiers)
-                    selected_job_ids.push_back(job_id);
-        }
-        Mask new_modifiers = modifiers;
-        for (JobId job_id: selected_job_ids)
-            new_modifiers.set(job_id);
-
-        // Generate the new network.
-        DynamicProgrammingTimeIndexedParameters dp_parameters;
-        dp_parameters.network = network_old;
-        dp_parameters.multipliers = multipliers;
-        dp_parameters.new_modifier_jobs = selected_job_ids;
-        dp_parameters.direction = direction;
-        dp_parameters.cutoff = tentative_upper_bound - 1 + TOLERANCE;
-        dp_parameters.constraint_propagation = parameters_.constraint_propagation;
-        DynamicProgrammingTimeIndexedOutput dp_output = dynamic_programming(dp_parameters);
-        if (dp_output.memory_out)
-            return Status::MemoryOut;
-        if (parameters_.timer.needs_to_end())
-            return Status::TimeOut;
-        std::shared_ptr<Network> network_new = dp_output.network;
-        modifiers = new_modifiers;
-        number_of_modifiers += selected_job_ids.size();
-        output_.maximum_number_of_modifiers = (std::max)(
-                output_.maximum_number_of_modifiers,
-                number_of_modifiers);
-        output_.maximum_number_of_states = (std::max)(
-                output_.maximum_number_of_states,
-                network_new->number_of_states());
-
-        lower_bound = dp_output.lagrangian_bound;
-        path = dp_output.path;
+    RelaxationRefinementParameters refinement_parameters;
+    refinement_parameters.verbosity_level = 0;
+    refinement_parameters.timer = parameters_.timer;
+    refinement_parameters.network = network;
+    refinement_parameters.multipliers = multipliers_;
+    refinement_parameters.upper_bound = upper_bound_;
+    refinement_parameters.bound_to_prove = tentative_upper_bound;
+    refinement_parameters.constraint_propagation = parameters_.constraint_propagation;
+    refinement_parameters.maximum_memory = parameters_.maximum_memory;
+    refinement_parameters.step_callback = [this](const RelaxationRefinementStep& step)
+    {
         algorithm_formatter_.print(
-                "m " + std::to_string(number_of_modifiers)
-                + " states " + std::to_string(network_new->number_of_states())
-                + " lb " + std::to_string(lower_bound)
-                + " ubt " + std::to_string(tentative_upper_bound));
+                "m " + std::to_string(step.network.modifiers().size())
+                + " states " + std::to_string(step.network.number_of_states())
+                + " lb " + std::to_string(step.lagrangian_bound)
+                + " ubt " + std::to_string(step.bound_to_prove));
         // A path visiting each job exactly once is a feasible solution; it is
         // always the case when all the jobs are in M.
-        std::vector<JobId> path_occurrences(n, 0);
-        for (JobId job_id: path)
-            path_occurrences[job_id]++;
-        bool path_feasible = !path.empty();
-        for (JobId job_id = 0; job_id < n; ++job_id)
-            if (path_occurrences[job_id] != 1)
-                path_feasible = false;
-        if (path_feasible) {
-            update_upper_bound(build_solution(path), "relaxation");
-        } else if (lower_bound > best_lower_bound + TOLERANCE && !path.empty()) {
-            lagrangian_heuristic(path, direction);
+        if (step.feasible) {
+            update_upper_bound(build_solution(step.path), "relaxation");
+        } else if (step.improved && !step.path.empty()) {
+            lagrangian_heuristic(step.path, step.direction);
         }
-        best_lower_bound = (std::max)(best_lower_bound, lower_bound);
-        tentative_upper_bound = (std::min)(tentative_upper_bound, upper_bound_);
-
-        network_old = network_new;
-        direction = (direction == Direction::Forward)? Direction::Backward: Direction::Forward;
+        return upper_bound_;
+    };
+    RelaxationRefinementOutput refinement_output = relaxation_refinement(
+            instance_,
+            refinement_parameters);
+    output_.maximum_number_of_modifiers = (std::max)(
+            output_.maximum_number_of_modifiers,
+            refinement_output.number_of_modifiers);
+    output_.maximum_number_of_states = (std::max)(
+            output_.maximum_number_of_states,
+            refinement_output.maximum_number_of_states);
+    tentative_upper_bound = (std::min)(tentative_upper_bound, upper_bound_);
+    switch (refinement_output.status) {
+    case RelaxationRefinementStatus::BoundProved:
+        return Status::Completed;
+    case RelaxationRefinementStatus::MemoryOut:
+        return Status::MemoryOut;
+    default:
+        return Status::TimeOut;
     }
 }
 
@@ -701,7 +611,6 @@ void SuccessiveSublimationDynamicProgramming::run()
     if (end())
         return;
     multipliers_ = best_multipliers_;
-    sum_of_multipliers_ = std::accumulate(multipliers_.begin(), multipliers_.end(), 0.0);
 
     // Network reduction with the multipliers of stage 1, then the labels of
     // both directions for stage 2.

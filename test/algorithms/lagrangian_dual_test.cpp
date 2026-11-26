@@ -18,6 +18,13 @@ std::vector<TestInstancePath> test_instance_paths()
             get_path({"test", "algorithms", "successive_sublimation_dynamic_programming_test.txt"}));
 }
 
+/** Instances with identical or unrelated parallel machines. */
+std::vector<TestInstancePath> parallel_test_instance_paths()
+{
+    return get_test_instance_paths(
+            get_path({"test", "algorithms", "lagrangian_dual_parallel_test.txt"}));
+}
+
 /** The two algorithms. */
 using LagrangianDualAlgorithm = std::function<LagrangianDualOutput(
         const Instance&,
@@ -53,12 +60,14 @@ Instance with_rejection_costs(const Instance& instance)
 {
     InstanceBuilder instance_builder;
     instance_builder.set_objective(instance.objective());
-    instance_builder.set_number_of_machines(1);
+    MachineId m = instance.number_of_machines();
+    instance_builder.set_number_of_machines(m);
     JobId n = instance.number_of_jobs();
     for (JobId job_id = 0; job_id < n; ++job_id) {
         const Job& job = instance.job(job_id);
         instance_builder.add_job();
-        instance_builder.set_job_processing_time(job_id, 0, job.processing_times[0]);
+        for (MachineId machine_id = 0; machine_id < m; ++machine_id)
+            instance_builder.set_job_processing_time(job_id, machine_id, job.processing_times[machine_id]);
         if (job.due_date >= 0)
             instance_builder.set_job_due_date(job_id, job.due_date);
         instance_builder.set_job_weight(job_id, job.weight);
@@ -66,9 +75,11 @@ Instance with_rejection_costs(const Instance& instance)
             instance_builder.set_job_rejection_cost(job_id, 5 + 23 * job_id);
     }
     if (instance.has_setup_times()) {
-        for (JobId job_id_1 = -1; job_id_1 < n; ++job_id_1)
-            for (JobId job_id_2 = 0; job_id_2 < n; ++job_id_2)
-                instance_builder.set_setup_time(0, job_id_1, job_id_2, instance.setup_time(0, job_id_1, job_id_2));
+        for (MachineId machine_id = 0; machine_id < m; ++machine_id)
+            for (JobId job_id_1 = -1; job_id_1 < n; ++job_id_1)
+                for (JobId job_id_2 = 0; job_id_2 < n; ++job_id_2)
+                    if (job_id_1 != job_id_2)
+                        instance_builder.set_setup_time(machine_id, job_id_1, job_id_2, instance.setup_time(machine_id, job_id_1, job_id_2));
     }
     return instance_builder.build();
 }
@@ -87,9 +98,21 @@ GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(ScheduleTest);
 
 TEST(LagrangianDual, UnsupportedInstances)
 {
+    Instance release_dates = build_instance(Objective::TotalTardiness, 2, {{{1, 1}, 1, 1}});
+    Instance makespan = build_instance(Objective::Makespan, 2, {{{1, 1}, 0, 1}});
+    for (const auto& algorithm: algorithms()) {
+        EXPECT_THROW(algorithm.second(release_dates, default_parameters()), std::invalid_argument) << algorithm.first;
+        EXPECT_THROW(algorithm.second(makespan, default_parameters()), std::invalid_argument) << algorithm.first;
+    }
+
+    // An input network is only supported on a single machine.
     Instance parallel = build_instance(Objective::TotalTardiness, 2, {{{1, 1}, 0, 1}});
+    Instance single = build_instance(Objective::TotalTardiness, 1, {{{1}, 0, 1}});
+    LagrangianDualParameters parameters = default_parameters();
+    parameters.network = std::make_shared<Network>(
+            Network::initial_network(build_problem(single)));
     for (const auto& algorithm: algorithms())
-        EXPECT_THROW(algorithm.second(parallel, default_parameters()), std::invalid_argument) << algorithm.first;
+        EXPECT_THROW(algorithm.second(parallel, parameters), std::invalid_argument) << algorithm.first;
 }
 
 TEST(LagrangianDual, ValidBounds)
@@ -216,4 +239,127 @@ TEST(LagrangianDual, Callback)
             EXPECT_LE(output.bound(), files.objective_value) << algorithm.first << " " << files.instance_path;
         }
     }
+}
+
+TEST(LagrangianDual, ParallelMachinesValidBounds)
+{
+    // Identical and unrelated machines: valid bounds and feasible solutions,
+    // with the default parameters, and with a large upper bound without
+    // reduction (then the Lagrangian bound is at most the optimal value).
+    for (const TestInstancePath& files: parallel_test_instance_paths()) {
+        const Instance instance = get_instance(files);
+        for (const auto& algorithm: algorithms()) {
+            LagrangianDualOutput output = algorithm.second(instance, default_parameters());
+            EXPECT_TRUE(output.solution.feasible()) << algorithm.first << " " << files.instance_path;
+            EXPECT_LE(output.bound(), files.objective_value) << algorithm.first << " " << files.instance_path;
+            EXPECT_GE(output.solution.objective_value(), files.objective_value) << algorithm.first << " " << files.instance_path;
+
+            LagrangianDualParameters parameters = default_parameters();
+            parameters.upper_bound = 1000000;
+            parameters.reduction = false;
+            LagrangianDualOutput output_weak = algorithm.second(instance, parameters);
+            EXPECT_LE(output_weak.bound(), files.objective_value) << algorithm.first << " " << files.instance_path;
+            EXPECT_LE(output_weak.lagrangian_bound, files.objective_value + 1e-6) << algorithm.first << " " << files.instance_path;
+        }
+    }
+}
+
+TEST(LagrangianDual, ParallelMachinesNetworks)
+{
+    // A network for each group of identical machines, and a path for each
+    // network at each iteration.
+    for (const TestInstancePath& files: parallel_test_instance_paths()) {
+        const Instance instance = get_instance(files);
+        MachineId m = instance.number_of_machines();
+        for (const auto& algorithm: algorithms()) {
+            Counter number_of_networks = -1;
+            LagrangianDualParameters parameters = default_parameters();
+            parameters.iteration_callback = [&number_of_networks](const LagrangianDualIteration& iteration)
+            {
+                if (number_of_networks == -1)
+                    number_of_networks = iteration.paths.size();
+                EXPECT_EQ((Counter)iteration.paths.size(), number_of_networks);
+                return (Time)-1;
+            };
+            LagrangianDualOutput output = algorithm.second(instance, parameters);
+            ASSERT_EQ(output.networks.size(), output.network_machine_ids.size()) << files.instance_path;
+            if (number_of_networks != -1)
+                EXPECT_EQ(number_of_networks, (Counter)output.networks.size()) << files.instance_path;
+            std::vector<bool> machines(m, false);
+            for (const std::vector<MachineId>& machine_ids: output.network_machine_ids) {
+                for (MachineId machine_id: machine_ids) {
+                    EXPECT_FALSE(machines[machine_id]) << files.instance_path;
+                    machines[machine_id] = true;
+                    EXPECT_TRUE(identical_machines(instance, machine_ids[0], machine_id)) << files.instance_path;
+                }
+            }
+            for (MachineId machine_id = 0; machine_id < m; ++machine_id)
+                EXPECT_TRUE(machines[machine_id]) << files.instance_path;
+        }
+    }
+}
+
+TEST(LagrangianDual, ParallelMachinesRejectionCosts)
+{
+    // Instances with at most 6 jobs, with rejection costs: valid bounds.
+    for (const TestInstancePath& files: parallel_test_instance_paths()) {
+        const Instance instance_without_rejection = get_instance(files);
+        if (instance_without_rejection.number_of_jobs() > 6)
+            continue;
+        Instance instance = with_rejection_costs(instance_without_rejection);
+        double optimal_value = brute_force_value(instance);
+        for (const auto& algorithm: algorithms()) {
+            LagrangianDualOutput output = algorithm.second(instance, default_parameters());
+            EXPECT_TRUE(output.solution.feasible()) << algorithm.first << " " << files.instance_path;
+            EXPECT_LE(output.bound(), optimal_value) << algorithm.first << " " << files.instance_path;
+            EXPECT_GE(output.solution.objective_value(), optimal_value) << algorithm.first << " " << files.instance_path;
+
+            LagrangianDualParameters parameters = default_parameters();
+            parameters.upper_bound = 1000000;
+            parameters.reduction = false;
+            LagrangianDualOutput output_weak = algorithm.second(instance, parameters);
+            EXPECT_LE(output_weak.lagrangian_bound, optimal_value + 1e-6) << algorithm.first << " " << files.instance_path;
+        }
+    }
+}
+
+TEST(LagrangianDual, ParallelMachinesColumnGenerationConvergence)
+{
+    // Without reduction, the column generation bound is at least the
+    // Lagrangian relaxation bound.
+    for (const TestInstancePath& files: parallel_test_instance_paths()) {
+        const Instance instance = get_instance(files);
+        LagrangianDualParameters parameters = default_parameters();
+        parameters.upper_bound = 1000000;
+        parameters.reduction = false;
+        LagrangianDualOutput output_lr = algorithms()[0].second(instance, parameters);
+        LagrangianDualOutput output_cg = algorithms()[1].second(instance, parameters);
+        EXPECT_GE(output_cg.lagrangian_bound, output_lr.lagrangian_bound - 1e-6) << files.instance_path;
+    }
+}
+
+TEST(LagrangianDual, MachineProblem)
+{
+    // Two identical machines and three jobs of processing times 2, 3, 4,
+    // without setup times: L = 9, q = 4, horizon (9 + 4) / 2 = 6; unrelated
+    // machines: the sum of the processing times of the machine.
+    Instance identical = build_instance(Objective::TotalFlowTime, 2, {
+            {{2, 2}, 0, 1},
+            {{3, 3}, 0, 1},
+            {{4, 4}, 0, 1}});
+    std::shared_ptr<const Problem> problem = build_machine_problem(identical, 1);
+    EXPECT_EQ(problem->number_of_jobs, 3);
+    EXPECT_TRUE(problem->machine_subproblem);
+    EXPECT_EQ(problem->minimum_makespan, 0);
+    EXPECT_EQ(problem->maximum_makespan, 6);
+    EXPECT_TRUE(problem->mandatory_jobs.empty());
+
+    Instance unrelated = build_instance(Objective::TotalFlowTime, 2, {
+            {{2, 1}, 0, 1},
+            {{3, 1}, 0, 1},
+            {{4, 1}, 0, 1}});
+    EXPECT_FALSE(identical_machines(unrelated, 0, 1));
+    EXPECT_EQ(build_machine_problem(unrelated, 0)->maximum_makespan, 9);
+    EXPECT_EQ(build_machine_problem(unrelated, 1)->maximum_makespan, 3);
+    EXPECT_EQ(build_machine_problem(unrelated, 1)->processing_times, (std::vector<Time>{1, 1, 1}));
 }

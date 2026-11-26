@@ -359,7 +359,7 @@ Time SuccessiveSublimationDynamicProgramming::stage_1_iteration(
     output_.number_of_stage_1_iterations = iteration.iteration;
     // A path visiting each job exactly once is a feasible solution.
     if (iteration.feasible)
-        update_upper_bound(build_solution(iteration.path), "relaxation");
+        update_upper_bound(build_solution(iteration.paths[0]), "relaxation");
     if (iteration.improved) {
         update_lower_bound(iteration.lagrangian_bound, "stage 1");
         algorithm_formatter_.print(
@@ -376,7 +376,7 @@ Time SuccessiveSublimationDynamicProgramming::stage_1_iteration(
             && iteration.iteration >= last_heuristic_iteration_ + 5) {
         heuristic_pending_ = false;
         last_heuristic_iteration_ = iteration.iteration;
-        lagrangian_heuristic(iteration.path, Direction::Forward);
+        lagrangian_heuristic(iteration.paths[0], Direction::Forward);
     }
     return upper_bound_;
 }

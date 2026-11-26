@@ -1051,15 +1051,17 @@ bool Network::generate(
 ////////////////////////////////// Problem /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_problem(
-        const Instance& instance,
-        bool remove_zero_cost_jobs)
+namespace
 {
-    if (instance.number_of_machines() != 1) {
-        throw std::invalid_argument(
-                FUNC_SIGNATURE + ": "
-                "only single machine instances are supported.");
-    }
+
+/**
+ * Check that the objective and the jobs of an instance are supported, with
+ * the processing times of a machine.
+ */
+void check_instance(
+        const Instance& instance,
+        MachineId machine_id)
+{
     if (instance.objective() != Objective::TotalTardiness
             && instance.objective() != Objective::TotalFlowTime) {
         throw std::invalid_argument(
@@ -1073,12 +1075,78 @@ std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_pro
                     FUNC_SIGNATURE + ": "
                     "release dates are not supported.");
         }
-        if (job.processing_times[0] <= 0) {
+        if (job.processing_times[machine_id] <= 0) {
             throw std::invalid_argument(
                     FUNC_SIGNATURE + ": "
                     "processing times must be positive.");
         }
     }
+}
+
+/**
+ * Extended processing times of a problem whose jobs and setup times are set,
+ * and the smallest and largest total setup times of a sequence of all its
+ * jobs, from the assignment relaxation of the asymmetric traveling salesman
+ * problem of the setup times.
+ */
+void complete_problem(
+        Problem& problem,
+        Time& setups_min,
+        Time& setups_max)
+{
+    JobId m = problem.number_of_jobs;
+    problem.extended_processing_times.resize(m);
+    for (JobId job_id = 0; job_id < m; ++job_id) {
+        Time setup_min = problem.setup_time(-1, job_id);
+        for (JobId job_id_1 = 0; job_id_1 < m; ++job_id_1)
+            if (job_id_1 != job_id)
+                setup_min = (std::min)(setup_min, problem.setup_time(job_id_1, job_id));
+        problem.extended_processing_times[job_id] = problem.processing_times[job_id] + setup_min;
+    }
+
+    // Bounds of the makespan from the assignment relaxation of the
+    // asymmetric traveling salesman problem, with a dummy node 0.
+    const Time forbidden = 1e15;
+    std::vector<std::vector<Time>> costs_min(m + 1, std::vector<Time>(m + 1, 0));
+    std::vector<std::vector<Time>> costs_max(m + 1, std::vector<Time>(m + 1, 0));
+    for (JobId a = 0; a <= m; ++a) {
+        for (JobId b = 0; b <= m; ++b) {
+            Time setup = 0;
+            if (a == b) {
+                costs_min[a][b] = forbidden;
+                costs_max[a][b] = forbidden;
+                continue;
+            }
+            if (b > 0)
+                setup = problem.setup_time(a - 1, b - 1);
+            costs_min[a][b] = setup;
+            costs_max[a][b] = -setup;
+        }
+    }
+    setups_min = 0;
+    setups_max = 0;
+    if (m > 0) {
+        std::vector<int64_t> assignment_min = hungarian(costs_min, m + 1, m + 1);
+        std::vector<int64_t> assignment_max = hungarian(costs_max, m + 1, m + 1);
+        for (JobId a = 0; a <= m; ++a) {
+            setups_min += costs_min[a][assignment_min[a]];
+            setups_max -= costs_max[a][assignment_max[a]];
+        }
+    }
+}
+
+}
+
+std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_problem(
+        const Instance& instance,
+        bool remove_zero_cost_jobs)
+{
+    if (instance.number_of_machines() != 1) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "only single machine instances are supported.");
+    }
+    check_instance(instance, 0);
 
     auto problem_pointer = std::make_shared<Problem>();
     Problem& problem = *problem_pointer;
@@ -1163,53 +1231,148 @@ std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_pro
                     problem.instance_job_ids[job_id_2]);
         }
     }
-    problem.extended_processing_times.resize(m);
-    for (JobId job_id = 0; job_id < m; ++job_id) {
-        Time setup_min = problem.setup_time(-1, job_id);
-        for (JobId job_id_1 = 0; job_id_1 < m; ++job_id_1)
-            if (job_id_1 != job_id)
-                setup_min = (std::min)(setup_min, problem.setup_time(job_id_1, job_id));
-        problem.extended_processing_times[job_id] = problem.processing_times[job_id] + setup_min;
-    }
-
-    // Bounds of the makespan from the assignment relaxation of the
-    // asymmetric traveling salesman problem, with a dummy node 0.
+    Time setups_min = 0;
+    Time setups_max = 0;
+    complete_problem(problem, setups_min, setups_max);
     Time sum_of_processing_times = 0;
     for (Time p: problem.processing_times)
         sum_of_processing_times += p;
-    const Time forbidden = 1e15;
-    std::vector<std::vector<Time>> costs_min(m + 1, std::vector<Time>(m + 1, 0));
-    std::vector<std::vector<Time>> costs_max(m + 1, std::vector<Time>(m + 1, 0));
-    for (JobId a = 0; a <= m; ++a) {
-        for (JobId b = 0; b <= m; ++b) {
-            Time setup = 0;
-            if (a == b) {
-                costs_min[a][b] = forbidden;
-                costs_max[a][b] = forbidden;
-                continue;
-            }
-            if (b > 0)
-                setup = problem.setup_time(a - 1, b - 1);
-            costs_min[a][b] = setup;
-            costs_max[a][b] = -setup;
-        }
-    }
-    Time setups_min = 0;
-    Time setups_max = 0;
-    if (m > 0) {
-        std::vector<int64_t> assignment_min = hungarian(costs_min, m + 1, m + 1);
-        std::vector<int64_t> assignment_max = hungarian(costs_max, m + 1, m + 1);
-        for (JobId a = 0; a <= m; ++a) {
-            setups_min += costs_min[a][assignment_min[a]];
-            setups_max -= costs_max[a][assignment_max[a]];
-        }
-    }
     // With rejection costs, the jobs may not all be scheduled.
     problem.minimum_makespan = (problem.has_rejection_costs)?
         0:
         sum_of_processing_times + setups_min;
     problem.maximum_makespan = sum_of_processing_times + setups_max;
     return problem_pointer;
+}
+
+bool parallelschedulingsolver::time_indexed::identical_machines(
+        const Instance& instance,
+        MachineId machine_id_1,
+        MachineId machine_id_2)
+{
+    JobId n = instance.number_of_jobs();
+    for (JobId job_id = 0; job_id < n; ++job_id) {
+        const Job& job = instance.job(job_id);
+        if (job.processing_times[machine_id_1] != job.processing_times[machine_id_2])
+            return false;
+    }
+    if (!instance.has_setup_times())
+        return true;
+    for (JobId job_id_1 = -1; job_id_1 < n; ++job_id_1) {
+        for (JobId job_id_2 = 0; job_id_2 < n; ++job_id_2) {
+            if (job_id_1 == job_id_2)
+                continue;
+            if (instance.setup_time(machine_id_1, job_id_1, job_id_2)
+                    != instance.setup_time(machine_id_2, job_id_1, job_id_2)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+std::shared_ptr<const Problem> parallelschedulingsolver::time_indexed::build_machine_problem(
+        const Instance& instance,
+        MachineId machine_id)
+{
+    if (machine_id < 0 || machine_id >= instance.number_of_machines()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid machine; "
+                "machine_id: " + std::to_string(machine_id) + ".");
+    }
+    check_instance(instance, machine_id);
+
+    auto problem_pointer = std::make_shared<Problem>();
+    Problem& problem = *problem_pointer;
+    JobId n = instance.number_of_jobs();
+    if (n > 127) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "at most 127 jobs are supported; "
+                "number of jobs: " + std::to_string(n) + ".");
+    }
+    problem.tardiness = (instance.objective() == Objective::TotalTardiness);
+    problem.machine_subproblem = true;
+    problem.number_of_jobs = n;
+    for (JobId job_id = 0; job_id < n; ++job_id) {
+        const Job& job = instance.job(job_id);
+        problem.instance_job_ids.push_back(job_id);
+        problem.processing_times.push_back(job.processing_times[machine_id]);
+        problem.weights.push_back(job.weight);
+        problem.due_dates.push_back(job.due_date);
+        // Any job may be processed on another machine: it is optional, and
+        // its cost is in the relaxation of the instance.
+        problem.rejection_costs.push_back(0);
+    }
+    problem.has_rejection_costs = (n > 0);
+    problem.setup_times.assign((n + 1) * n, 0);
+    for (JobId job_id_1 = -1; job_id_1 < n; ++job_id_1) {
+        for (JobId job_id_2 = 0; job_id_2 < n; ++job_id_2) {
+            if (job_id_1 == job_id_2)
+                continue;
+            problem.setup_times[(job_id_1 + 1) * n + job_id_2]
+                = instance.setup_time(machine_id, job_id_1, job_id_2);
+        }
+    }
+    Time setups_min = 0;
+    Time setups_max = 0;
+    complete_problem(problem, setups_min, setups_max);
+    Time sum_of_processing_times = 0;
+    for (Time p: problem.processing_times)
+        sum_of_processing_times += p;
+    problem.minimum_makespan = 0;
+    problem.maximum_makespan = sum_of_processing_times + setups_max;
+
+    // Identical machines: in an optimal schedule minimizing the sum of the
+    // completion times among the optimal schedules, the last job j of a
+    // machine a can't be moved to the end of another machine b, so
+    // C_a <= C_b + q with q = max_j (p_j + largest setup time before j).
+    // With L the sum over the jobs of p_j + largest setup time before j,
+    // sum_b C_b <= L, hence C_a <= (L + (m - 1) q) / m.
+    MachineId m = instance.number_of_machines();
+    bool identical = true;
+    for (MachineId machine_id_2 = 0; machine_id_2 < m && identical; ++machine_id_2)
+        if (machine_id_2 != machine_id && !identical_machines(instance, machine_id, machine_id_2))
+            identical = false;
+    if (m > 1 && identical && n > 0) {
+        Time total = 0;
+        Time q = 0;
+        for (JobId job_id = 0; job_id < n; ++job_id) {
+            Time setup_max = problem.setup_time(-1, job_id);
+            for (JobId job_id_1 = 0; job_id_1 < n; ++job_id_1)
+                if (job_id_1 != job_id)
+                    setup_max = (std::max)(setup_max, problem.setup_time(job_id_1, job_id));
+            Time extended = problem.processing_times[job_id] + setup_max;
+            total += extended;
+            q = (std::max)(q, extended);
+        }
+        problem.maximum_makespan = (std::min)(
+                problem.maximum_makespan,
+                (total + (m - 1) * q) / m);
+    }
+    return problem_pointer;
+}
+
+Solution parallelschedulingsolver::time_indexed::build_parallel_solution(
+        const Instance& instance,
+        const std::vector<std::vector<JobId>>& machine_sequences)
+{
+    SolutionBuilder solution_builder;
+    solution_builder.set_instance(instance);
+    for (MachineId machine_id = 0;
+            machine_id < (MachineId)machine_sequences.size();
+            ++machine_id) {
+        Time t = 0;
+        JobId job_id_prev = -1;
+        for (JobId job_id: machine_sequences[machine_id]) {
+            Time start = t + instance.setup_time(machine_id, job_id_prev, job_id);
+            solution_builder.append_job_to_machine(machine_id, job_id, start);
+            t = start + instance.job(job_id).processing_times[machine_id];
+            job_id_prev = job_id;
+        }
+    }
+    return solution_builder.build();
 }
 
 Solution parallelschedulingsolver::time_indexed::build_solution(

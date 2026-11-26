@@ -16,7 +16,6 @@ const LagrangianDualOutput parallelschedulingsolver::lagrangian_relaxation(
     LagrangianDual lagrangian_dual(instance, parameters, output, algorithm_formatter);
     algorithm_formatter.print_header();
 
-    const time_indexed::Problem& problem = lagrangian_dual.problem();
     JobId n = lagrangian_dual.number_of_jobs();
     std::vector<double> multipliers = parameters.initial_multipliers;
     if (multipliers.empty())
@@ -32,14 +31,14 @@ const LagrangianDualOutput parallelschedulingsolver::lagrangian_relaxation(
     std::vector<double> gaps;
 
     while (!lagrangian_dual.end()) {
-        std::vector<JobId> path;
+        std::vector<std::vector<JobId>> paths;
         bool feasible = false;
-        double lower_bound = lagrangian_dual.evaluate(multipliers, path, feasible);
+        double lower_bound = lagrangian_dual.evaluate(multipliers, paths, feasible);
         if (lower_bound == time_indexed::INF) {
             lagrangian_dual.network_empty();
             break;
         }
-        bool improved = lagrangian_dual.process(multipliers, lower_bound, path, feasible);
+        bool improved = lagrangian_dual.process(multipliers, lower_bound, paths, feasible);
         if (lagrangian_dual.end())
             break;
 
@@ -69,20 +68,7 @@ const LagrangianDualOutput parallelschedulingsolver::lagrangian_relaxation(
             }
         }
 
-        // Subgradient: 1 - (number of times the job is processed) - (1 if
-        // it is rejected); a job of M is processed once or rejected.
-        const time_indexed::Mask& modifiers = output.network->modifiers();
-        std::vector<double> subgradient(n, 1);
-        for (JobId job_id: path)
-            subgradient[job_id] -= 1;
-        for (JobId job_id = 0; job_id < n; ++job_id) {
-            if (modifiers.get(job_id)) {
-                subgradient[job_id] = 0;
-            } else if (problem.rejection_costs[job_id] >= 0
-                    && problem.rejection_costs[job_id] < multipliers[job_id]) {
-                subgradient[job_id] -= 1;
-            }
-        }
+        std::vector<double> subgradient = lagrangian_dual.subgradient(multipliers, paths);
         double subgradient_norm = 0;
         for (JobId job_id = 0; job_id < n; ++job_id)
             subgradient_norm += subgradient[job_id] * subgradient[job_id];

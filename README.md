@@ -186,6 +186,7 @@ $P_m \mid \mid \sum C_j$
 * [Assignment](doc/assignment_total_flow_time.md) `--algorithm assignment-total-flow-time` (optimal)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $P_m \mid r_j \mid \sum C_j$
@@ -197,6 +198,7 @@ $P_m \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time` ($\frac{1 + \sqrt{2}}{2}$ approximation)
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $P_m \mid r_j \mid \sum w_j C_j$
@@ -209,6 +211,7 @@ $P_m \mid r_j \mid \sum w_j C_j$
 $P_m \mid \mid \sum w_j T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $P_m \mid r_j \mid \sum w_j T_j$
@@ -260,6 +263,7 @@ $R_m \mid \mid \sum C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $R_m \mid r_j \mid \sum C_j$
@@ -271,6 +275,7 @@ $R_m \mid \mid \sum w_j C_j$
 * [Greedy WSPT](doc/greedy_shortest_processing_time.md) `--algorithm greedy-shortest-processing-time`
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $R_m \mid r_j \mid \sum w_j C_j$
@@ -283,6 +288,7 @@ $R_m \mid r_j \mid \sum w_j C_j$
 $R_m \mid \mid \sum w_j T_j$
 * [Time-indexed MILP](doc/milp_time_indexed.md) `--algorithm milp-time-indexed` (exact)
 * [Positional MILP](doc/milp_positional.md) `--algorithm milp-positional` (exact)
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $R_m \mid r_j \mid \sum w_j T_j$
@@ -321,6 +327,9 @@ $1 \mid s_{ij} \mid \sum w_j C_j$
 * [Dynamic programming on the time-indexed network](doc/dynamic_programming_time_indexed.md) `--algorithm dynamic-programming-time-indexed` (exact with `--all-jobs-in-modifiers 1`, small instances)
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 
+$P \mid s_{ij} \mid \sum w_j C_j$, $R \mid s_{ijk} \mid \sum w_j C_j$
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
+
 $1 \mid s_{ij} \mid \sum w_j C_j$, $P \mid s_{ij} \mid \sum w_j C_j$, $R \mid s_{ijk} \mid \sum w_j C_j$, with or without release dates
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
@@ -329,6 +338,9 @@ $1 \mid s_{ij} \mid \sum w_j C_j$, $P \mid s_{ij} \mid \sum w_j C_j$, $R \mid s_
 $1 \mid s_{ij} \mid \sum w_j T_j$
 * [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 * [Dynamic programming on the time-indexed network](doc/dynamic_programming_time_indexed.md) `--algorithm dynamic-programming-time-indexed` (exact with `--all-jobs-in-modifiers 1`, small instances)
+* [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
+
+$P \mid s_{ij} \mid \sum w_j T_j$, $R \mid s_{ijk} \mid \sum w_j T_j$
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
 
 $1 \mid s_{ij} \mid \sum w_j T_j$, $P \mid s_{ij} \mid \sum w_j T_j$, $R \mid s_{ijk} \mid \sum w_j T_j$, with or without release dates

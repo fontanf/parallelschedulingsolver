@@ -110,6 +110,7 @@ $1 \mid \mid \sum T_j$
 * [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 * [Dynamic programming on the time-indexed network](doc/dynamic_programming_time_indexed.md) `--algorithm dynamic-programming-time-indexed` (exact with `--all-jobs-in-modifiers 1`, small instances)
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
+* [Relaxation refinement](doc/relaxation_refinement.md) `--algorithm relaxation-refinement` (lower bounds, exact without early termination)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum T_j$
@@ -124,6 +125,7 @@ $1 \mid \mid \sum w_j T_j$
 * [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 * [Dynamic programming on the time-indexed network](doc/dynamic_programming_time_indexed.md) `--algorithm dynamic-programming-time-indexed` (exact with `--all-jobs-in-modifiers 1`, small instances)
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
+* [Relaxation refinement](doc/relaxation_refinement.md) `--algorithm relaxation-refinement` (lower bounds, exact without early termination)
 * [Local search](doc/local_search.md) `--algorithm local-search`
 
 $1 \mid r_j \mid \sum w_j T_j$
@@ -326,6 +328,7 @@ $1 \mid s_{ij} \mid \sum w_j C_j$
 * [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 * [Dynamic programming on the time-indexed network](doc/dynamic_programming_time_indexed.md) `--algorithm dynamic-programming-time-indexed` (exact with `--all-jobs-in-modifiers 1`, small instances)
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
+* [Relaxation refinement](doc/relaxation_refinement.md) `--algorithm relaxation-refinement` (lower bounds, exact without early termination)
 
 $P \mid s_{ij} \mid \sum w_j C_j$, $R \mid s_{ijk} \mid \sum w_j C_j$
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
@@ -339,6 +342,7 @@ $1 \mid s_{ij} \mid \sum w_j T_j$
 * [Successive sublimation dynamic programming](doc/successive_sublimation_dynamic_programming.md) `--algorithm successive-sublimation-dynamic-programming` (exact)
 * [Dynamic programming on the time-indexed network](doc/dynamic_programming_time_indexed.md) `--algorithm dynamic-programming-time-indexed` (exact with `--all-jobs-in-modifiers 1`, small instances)
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)
+* [Relaxation refinement](doc/relaxation_refinement.md) `--algorithm relaxation-refinement` (lower bounds, exact without early termination)
 
 $P \mid s_{ij} \mid \sum w_j T_j$, $R \mid s_{ijk} \mid \sum w_j T_j$
 * [Lagrangian relaxation](doc/lagrangian_dual.md) `--algorithm lagrangian-relaxation` and [column generation](doc/lagrangian_dual.md) `--algorithm column-generation` (lower bounds)

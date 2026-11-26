@@ -14,6 +14,7 @@
 #include "parallelschedulingsolver/algorithms/dynamic_programming_time_indexed.hpp"
 #include "parallelschedulingsolver/algorithms/lagrangian_relaxation.hpp"
 #include "parallelschedulingsolver/algorithms/column_generation.hpp"
+#include "parallelschedulingsolver/algorithms/relaxation_refinement.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -165,6 +166,25 @@ Output run(
             parameters.maximum_number_of_iterations = vm["maximum-number-of-iterations"].as<Counter>();
         return column_generation(instance, parameters);
 
+    } else if (algorithm == "relaxation-refinement") {
+        RelaxationRefinementParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("column-generation"))
+            parameters.column_generation = vm["column-generation"].as<bool>();
+        if (vm.count("constraint-propagation"))
+            parameters.constraint_propagation = vm["constraint-propagation"].as<bool>();
+        if (vm.count("maximum-memory"))
+            parameters.maximum_memory = vm["maximum-memory"].as<double>();
+        if (vm.count("bound-to-prove"))
+            parameters.bound_to_prove = vm["bound-to-prove"].as<Time>();
+        if (vm.count("maximum-number-of-steps"))
+            parameters.maximum_number_of_steps = vm["maximum-number-of-steps"].as<Counter>();
+        if (vm.count("tailing-off-number-of-steps"))
+            parameters.tailing_off_number_of_steps = vm["tailing-off-number-of-steps"].as<Counter>();
+        if (vm.count("tailing-off-minimum-improvement"))
+            parameters.tailing_off_minimum_improvement = vm["tailing-off-minimum-improvement"].as<double>();
+        return relaxation_refinement(instance, parameters);
+
     } else if (algorithm == "local-search") {
         LocalSearchParameters parameters;
         read_args(parameters, vm);
@@ -236,6 +256,10 @@ int main(int argc, char *argv[])
         ("minimum-branching-depth,", po::value<Counter>(), "successive sublimation dynamic programming: minimum depth of the interval branching")
         ("all-jobs-in-modifiers,", po::value<bool>(), "time-indexed dynamic programming: all the jobs in the state-space modifiers (exact)")
         ("maximum-number-of-iterations,", po::value<Counter>(), "Lagrangian relaxation, column generation: maximum number of evaluations of the relaxation")
+        ("bound-to-prove,", po::value<Time>(), "relaxation refinement: bound to prove (default: the upper bound)")
+        ("maximum-number-of-steps,", po::value<Counter>(), "relaxation refinement: maximum number of refinement steps")
+        ("tailing-off-number-of-steps,", po::value<Counter>(), "relaxation refinement: number of steps of the tailing-off rule (0: none)")
+        ("tailing-off-minimum-improvement,", po::value<double>(), "relaxation refinement: minimum bound improvement of the tailing-off rule, relative to the gap")
         ("maximum-number-of-stage-1-iterations,", po::value<Counter>(), "successive sublimation dynamic programming: maximum number of iterations of stage 1")
         ("maximum-number-of-candidates,", po::value<Counter>(), "brute force: maximum number of candidates")
         ("maximum-number-of-restarts,", po::value<Counter>(), "local search: maximum number of restarts")

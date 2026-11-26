@@ -13,7 +13,11 @@ namespace
 /** Tolerance on the lower bounds, computed with floating point multipliers. */
 constexpr double TOLERANCE = 1e-6;
 
-enum class Status { Completed, MemoryOut, TimeOut };
+/**
+ * Status of the relaxation refinement of a node: EarlyTermination if it
+ * reached the maximum number of steps or tailed off (refine-or-branch rule).
+ */
+enum class Status { Completed, MemoryOut, EarlyTermination, TimeOut };
 
 class TreeSearchIterativeRefinement
 {
@@ -82,10 +86,15 @@ private:
         }
     }
 
-    /** Relaxation refinement of a node with a tentative upper bound. */
+    /**
+     * Relaxation refinement of a node with a tentative upper bound, with the
+     * early termination of the refine-or-branch rule if
+     * 'early_termination'.
+     */
     Status refine(
             const std::shared_ptr<Network>& network,
-            Time& tentative_upper_bound);
+            Time& tentative_upper_bound,
+            bool early_termination);
 
     /**
      * Node of the interval branching: relaxation refinement, then branching
@@ -121,7 +130,8 @@ private:
 
 Status TreeSearchIterativeRefinement::refine(
         const std::shared_ptr<Network>& network,
-        Time& tentative_upper_bound)
+        Time& tentative_upper_bound,
+        bool early_termination)
 {
     output_.number_of_refinements++;
 
@@ -136,6 +146,11 @@ Status TreeSearchIterativeRefinement::refine(
     refinement_parameters.constraint_propagation = parameters_.constraint_propagation;
     refinement_parameters.maximum_memory = parameters_.maximum_memory;
     refinement_parameters.step_callback = parameters_.step_callback;
+    if (early_termination) {
+        refinement_parameters.maximum_number_of_steps = parameters_.maximum_number_of_refinement_steps;
+        refinement_parameters.tailing_off_number_of_steps = parameters_.tailing_off_number_of_steps;
+        refinement_parameters.tailing_off_minimum_improvement = parameters_.tailing_off_minimum_improvement;
+    }
     RelaxationRefinementOutput refinement_output = relaxation_refinement(
             instance_,
             refinement_parameters);
@@ -152,6 +167,9 @@ Status TreeSearchIterativeRefinement::refine(
         return Status::Completed;
     case RelaxationRefinementStatus::MemoryOut:
         return Status::MemoryOut;
+    case RelaxationRefinementStatus::MaximumNumberOfSteps:
+    case RelaxationRefinementStatus::TailingOff:
+        return Status::EarlyTermination;
     default:
         return Status::TimeOut;
     }
@@ -163,11 +181,18 @@ Status TreeSearchIterativeRefinement::solve_branch(
         Counter forced_depth,
         Counter depth)
 {
+    // The early termination of the refine-or-branch rule is only used with
+    // interval branching.
+    bool early_termination = parameters_.interval_branching;
+    Status refinement_status = Status::Completed;
     bool refinement_run = false;
     if (depth >= forced_depth) {
-        Status status = refine(network, tentative_upper_bound);
-        if (status != Status::MemoryOut || !parameters_.interval_branching)
-            return status;
+        refinement_status = refine(network, tentative_upper_bound, early_termination);
+        if ((refinement_status != Status::MemoryOut
+                    && refinement_status != Status::EarlyTermination)
+                || !parameters_.interval_branching) {
+            return refinement_status;
+        }
         refinement_run = true;
     }
 
@@ -184,10 +209,11 @@ Status TreeSearchIterativeRefinement::solve_branch(
         if (earliest_completion_times[job_id] < latest_completion_times[job_id])
             job_ids.push_back(job_id);
     if (job_ids.empty()) {
-        // No job to branch on.
-        if (refinement_run)
+        // No job to branch on: the relaxation refinement without early
+        // termination.
+        if (refinement_run && refinement_status == Status::MemoryOut)
             return Status::MemoryOut;
-        return refine(network, tentative_upper_bound);
+        return refine(network, tentative_upper_bound, false);
     }
     std::stable_sort(job_ids.begin(), job_ids.end(),
             [&number_of_states](JobId job_id_1, JobId job_id_2)

@@ -160,3 +160,32 @@ TEST(TreeSearchIterativeRefinement, RejectionCosts)
         EXPECT_EQ(output.bound(), optimal_value) << files.instance_path;
     }
 }
+
+TEST(TreeSearchIterativeRefinement, RefineOrBranch)
+{
+    // Branching after one refinement step, or when the refinement tails off
+    // (the gap must be closed at each step), with all the multipliers equal
+    // to 0 and a large upper bound: the optimal value and its proof, and the
+    // branching occurs on some instances.
+    for (int setting = 0; setting < 2; ++setting) {
+        Counter number_of_branchings = 0;
+        for (const TestInstancePath& files: test_instance_paths()) {
+            const Instance instance = get_instance(files);
+            TreeSearchIterativeRefinementParameters parameters = default_parameters();
+            parameters.multipliers.assign(build_problem(instance)->number_of_jobs, 0);
+            parameters.upper_bound = 1000000;
+            if (setting == 0) {
+                parameters.maximum_number_of_refinement_steps = 1;
+            } else {
+                parameters.tailing_off_number_of_steps = 1;
+                parameters.tailing_off_minimum_improvement = 1;
+            }
+            TreeSearchIterativeRefinementOutput output = tree_search_iterative_refinement(instance, parameters);
+            EXPECT_EQ(output.solution.objective_value(), files.objective_value) << setting << " " << files.instance_path;
+            EXPECT_EQ(output.bound(), files.objective_value) << setting << " " << files.instance_path;
+            if (output.maximum_branching_depth > 0)
+                number_of_branchings++;
+        }
+        EXPECT_GT(number_of_branchings, 0) << setting;
+    }
+}

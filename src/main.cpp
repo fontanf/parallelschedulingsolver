@@ -136,6 +136,12 @@ Output run(
             parameters.minimum_branching_depth = vm["minimum-branching-depth"].as<Counter>();
         if (vm.count("maximum-number-of-stage-1-iterations"))
             parameters.maximum_number_of_stage_1_iterations = vm["maximum-number-of-stage-1-iterations"].as<Counter>();
+        if (vm.count("maximum-number-of-refinement-steps"))
+            parameters.maximum_number_of_refinement_steps = vm["maximum-number-of-refinement-steps"].as<Counter>();
+        if (vm.count("tailing-off-number-of-steps"))
+            parameters.tailing_off_number_of_steps = vm["tailing-off-number-of-steps"].as<Counter>();
+        if (vm.count("tailing-off-minimum-improvement"))
+            parameters.tailing_off_minimum_improvement = vm["tailing-off-minimum-improvement"].as<double>();
         return successive_sublimation_dynamic_programming(instance, parameters);
 
     } else if (algorithm == "dynamic-programming-time-indexed") {
@@ -199,6 +205,12 @@ Output run(
             parameters.maximum_memory = vm["maximum-memory"].as<double>();
         if (vm.count("minimum-branching-depth"))
             parameters.minimum_branching_depth = vm["minimum-branching-depth"].as<Counter>();
+        if (vm.count("maximum-number-of-refinement-steps"))
+            parameters.maximum_number_of_refinement_steps = vm["maximum-number-of-refinement-steps"].as<Counter>();
+        if (vm.count("tailing-off-number-of-steps"))
+            parameters.tailing_off_number_of_steps = vm["tailing-off-number-of-steps"].as<Counter>();
+        if (vm.count("tailing-off-minimum-improvement"))
+            parameters.tailing_off_minimum_improvement = vm["tailing-off-minimum-improvement"].as<double>();
         return tree_search_iterative_refinement(instance, parameters);
 
     } else if (algorithm == "local-search") {
@@ -274,8 +286,9 @@ int main(int argc, char *argv[])
         ("maximum-number-of-iterations,", po::value<Counter>(), "Lagrangian relaxation, column generation: maximum number of evaluations of the relaxation")
         ("bound-to-prove,", po::value<Time>(), "relaxation refinement: bound to prove (default: the upper bound)")
         ("maximum-number-of-steps,", po::value<Counter>(), "relaxation refinement: maximum number of refinement steps")
-        ("tailing-off-number-of-steps,", po::value<Counter>(), "relaxation refinement: number of steps of the tailing-off rule (0: none)")
-        ("tailing-off-minimum-improvement,", po::value<double>(), "relaxation refinement: minimum bound improvement of the tailing-off rule, relative to the gap")
+        ("maximum-number-of-refinement-steps,", po::value<Counter>(), "tree search with iterative refinement, successive sublimation dynamic programming: branching after this number of refinement steps (-1: no limit)")
+        ("tailing-off-number-of-steps,", po::value<Counter>(), "relaxation refinement, tree search with iterative refinement, successive sublimation dynamic programming: number of steps of the tailing-off rule (0: none)")
+        ("tailing-off-minimum-improvement,", po::value<double>(), "relaxation refinement, tree search with iterative refinement, successive sublimation dynamic programming: minimum bound improvement of the tailing-off rule, relative to the gap")
         ("maximum-number-of-stage-1-iterations,", po::value<Counter>(), "successive sublimation dynamic programming: maximum number of iterations of stage 1")
         ("maximum-number-of-candidates,", po::value<Counter>(), "brute force: maximum number of candidates")
         ("maximum-number-of-restarts,", po::value<Counter>(), "local search: maximum number of restarts")

@@ -9,7 +9,9 @@
  * If the memory isn't sufficient, the completion times of the two jobs with
  * the most states are split into two intervals (interval branching), and the
  * relaxation refinement is applied to each of the four restricted networks,
- * recursively.
+ * recursively. Optionally (refine-or-branch rule), a node is also branched on
+ * when its relaxation refinement reaches a maximum number of steps or tails
+ * off.
  *
  * Single machine, total (weighted) tardiness or total (weighted) completion
  * time, without release dates, with or without sequence-dependent setup
@@ -67,6 +69,24 @@ struct TreeSearchIterativeRefinementParameters: Parameters
      */
     Counter minimum_branching_depth = 0;
 
+    /**
+     * Refine-or-branch rule: the maximum number of steps of the relaxation
+     * refinement of a node; -1: no limit. With interval branching, a node
+     * whose relaxation refinement reaches it is branched on, as when the
+     * memory isn't sufficient.
+     */
+    Counter maximum_number_of_refinement_steps = -1;
+
+    /**
+     * Refine-or-branch rule: the tailing-off of the relaxation refinement of
+     * a node (see RelaxationRefinementParameters); 0: no tailing-off. With
+     * interval branching, a node whose relaxation refinement tails off is
+     * branched on.
+     */
+    Counter tailing_off_number_of_steps = 0;
+
+    double tailing_off_minimum_improvement = 0.01;
+
     /** Constraint propagation after each network generation. */
     bool constraint_propagation = true;
 
@@ -97,6 +117,9 @@ struct TreeSearchIterativeRefinementParameters: Parameters
             << std::setw(width) << std::left << "Tentative UB increment: " << tentative_upper_bound_increment << std::endl
             << std::setw(width) << std::left << "Interval branching: " << interval_branching << std::endl
             << std::setw(width) << std::left << "Minimum branching depth: " << minimum_branching_depth << std::endl
+            << std::setw(width) << std::left << "Max. refinement steps: " << maximum_number_of_refinement_steps << std::endl
+            << std::setw(width) << std::left << "Tailing-off number of steps: " << tailing_off_number_of_steps << std::endl
+            << std::setw(width) << std::left << "Tailing-off min. improvement: " << tailing_off_minimum_improvement << std::endl
             << std::setw(width) << std::left << "Constraint propagation: " << constraint_propagation << std::endl
             << std::setw(width) << std::left << "Maximum memory (MB): " << maximum_memory << std::endl
             ;
@@ -113,6 +136,9 @@ struct TreeSearchIterativeRefinementParameters: Parameters
                 {"TentativeUpperBoundIncrement", tentative_upper_bound_increment},
                 {"IntervalBranching", interval_branching},
                 {"MinimumBranchingDepth", minimum_branching_depth},
+                {"MaximumNumberOfRefinementSteps", maximum_number_of_refinement_steps},
+                {"TailingOffNumberOfSteps", tailing_off_number_of_steps},
+                {"TailingOffMinimumImprovement", tailing_off_minimum_improvement},
                 {"ConstraintPropagation", constraint_propagation},
                 {"MaximumMemory", maximum_memory}});
         return json;

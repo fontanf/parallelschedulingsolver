@@ -111,6 +111,20 @@ struct SuccessiveSublimationDynamicProgrammingParameters: Parameters
     /** Increment of the tentative upper bound, relative to the upper bound. */
     double tentative_upper_bound_increment = 0.01;
 
+    /**
+     * Refine-or-branch rule of stage 2 (with interval branching): maximum
+     * number of steps of a subprocedure before branching; -1: no limit.
+     */
+    Counter maximum_number_of_refinement_steps = -1;
+
+    /**
+     * Refine-or-branch rule of stage 2 (with interval branching): branching
+     * if a subprocedure tails off; 0: no tailing-off.
+     */
+    Counter tailing_off_number_of_steps = 0;
+
+    double tailing_off_minimum_improvement = 0.01;
+
 
     virtual int format_width() const override { return 37; }
 
@@ -123,6 +137,9 @@ struct SuccessiveSublimationDynamicProgrammingParameters: Parameters
             << std::setw(width) << std::left << "Constraint propagation: " << constraint_propagation << std::endl
             << std::setw(width) << std::left << "Interval branching: " << interval_branching << std::endl
             << std::setw(width) << std::left << "Maximum memory (MB): " << maximum_memory << std::endl
+            << std::setw(width) << std::left << "Max. refinement steps: " << maximum_number_of_refinement_steps << std::endl
+            << std::setw(width) << std::left << "Tailing-off number of steps: " << tailing_off_number_of_steps << std::endl
+            << std::setw(width) << std::left << "Tailing-off min. improvement: " << tailing_off_minimum_improvement << std::endl
             ;
     }
 
@@ -133,7 +150,10 @@ struct SuccessiveSublimationDynamicProgrammingParameters: Parameters
                 {"ColumnGeneration", column_generation},
                 {"ConstraintPropagation", constraint_propagation},
                 {"IntervalBranching", interval_branching},
-                {"MaximumMemory", maximum_memory}});
+                {"MaximumMemory", maximum_memory},
+                {"MaximumNumberOfRefinementSteps", maximum_number_of_refinement_steps},
+                {"TailingOffNumberOfSteps", tailing_off_number_of_steps},
+                {"TailingOffMinimumImprovement", tailing_off_minimum_improvement}});
         return json;
     }
 };

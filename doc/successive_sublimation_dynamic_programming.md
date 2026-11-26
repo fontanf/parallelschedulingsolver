@@ -48,7 +48,7 @@ The number of jobs added to $\mathcal{M}$ (1, 2 or 3) and their choice follow Ta
 
 ### Interval branching
 
-If the memory (`--maximum-memory`, in MB, 2048 by default) is not sufficient in the subprocedure, the algorithm branches (Section 5.4, `--interval-branching`): the completion times of the two jobs with the most states are split into two intervals with balanced numbers of states, and the subprocedure is applied to each of the four networks, recursively. The largest depth reached for a tentative upper bound is used from the start for the next one.
+If the memory (`--maximum-memory`, in MB, 2048 by default) is not sufficient in the subprocedure (or, optionally, if the subprocedure reaches a maximum number of steps or tails off: the refine-or-branch rule of the [tree search with iterative refinement](tree_search_iterative_refinement.md)), the algorithm branches (Section 5.4, `--interval-branching`): the completion times of the two jobs with the most states are split into two intervals with balanced numbers of states, and the subprocedure is applied to each of the four networks, recursively. The largest depth reached for a tentative upper bound is used from the start for the next one.
 
 ### Upper bounds
 
@@ -78,6 +78,9 @@ A job $i$ with $w_i = 0$ (or without due date) satisfying $s_{ji} + p_i + s_{ik}
 | `--lagrangian-heuristic-local-search` | 1 | Local search in the Lagrangian heuristic |
 | `--maximum-number-of-stage-1-iterations` | 10000 | Iterations of stage 1 |
 | `--minimum-branching-depth` | 0 | Branching from the start of stage 2 (for testing) |
+| `--maximum-number-of-refinement-steps` | -1 | Refine-or-branch rule: branching after this number of steps of a subprocedure (-1: no limit) |
+| `--tailing-off-number-of-steps` | 0 | Refine-or-branch rule: branching if a subprocedure tails off over this number of steps (0: none) |
+| `--tailing-off-minimum-improvement` | 0.01 | Refine-or-branch rule: minimum bound improvement over these steps, relative to the gap |
 
 ## Results
 
@@ -110,7 +113,7 @@ On these instances, the networks need interval branching, and the upper bounds o
 
 ## Tests
 
-`test/algorithms/successive_sublimation_dynamic_programming_test.cpp`: the optimal values (brute force) of all the single machine instances without release dates of the tests, with and without setup times, for the total (weighted) tardiness and completion time, with five settings: default, conjugate subgradient, and weak upper bounds with a single iteration of stage 1 (so that the optimality is proved in stage 2) with and without constraint propagation, and with forced interval branching. Also checked once, not in the tests: 32 random instances with 9 and 10 jobs against the brute force, with the same settings.
+`test/algorithms/successive_sublimation_dynamic_programming_test.cpp`: the optimal values (brute force) of all the single machine instances without release dates of the tests, with and without setup times, for the total (weighted) tardiness and completion time, with seven settings: default, conjugate subgradient, and weak upper bounds with a single iteration of stage 1 (so that the optimality is proved in stage 2) with and without constraint propagation, with forced interval branching, and with the refine-or-branch rule (branching after one step, or when a subprocedure tails off). Also checked once, not in the tests: 32 random instances with 9 and 10 jobs against the brute force, with the same settings.
 
 ## Source files
 

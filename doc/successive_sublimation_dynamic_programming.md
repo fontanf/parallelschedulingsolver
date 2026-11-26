@@ -115,9 +115,9 @@ On these instances, the networks need interval branching, and the upper bounds o
 ## Source files
 
 * `include/parallelschedulingsolver/algorithms/successive_sublimation_dynamic_programming.hpp`
-* `src/algorithms/successive_sublimation_dynamic_programming.cpp`: stages, upper bounds, branching.
+* `src/algorithms/successive_sublimation_dynamic_programming.cpp`: stages, upper bounds.
 * Stage 1 is the [column generation or the Lagrangian relaxation](lagrangian_dual.md) algorithm, with a callback for the Lagrangian heuristic.
-* The subprocedure of stage 2 is the [relaxation refinement](relaxation_refinement.md) algorithm, with the multipliers of stage 1, the tentative upper bound as bound to prove, and a callback for the Lagrangian heuristic.
+* Stage 2 is the [tree search with iterative refinement](tree_search_iterative_refinement.md) algorithm (the loop on the tentative upper bound and the interval branching), with the multipliers of stage 1 and a callback for the Lagrangian heuristic; its subprocedure is the [relaxation refinement](relaxation_refinement.md) algorithm.
 * The dynamic programming is the [time-indexed dynamic programming](dynamic_programming_time_indexed.md) algorithm (`src/algorithms/dynamic_programming_time_indexed.cpp`), called for each iteration of stage 1, each network generation of stage 2 and each child of the interval branching; network, generation, reduction and constraint propagation in `include/parallelschedulingsolver/algorithms/time_indexed_network.hpp` and `src/algorithms/time_indexed_network.cpp`.
 
 ## References

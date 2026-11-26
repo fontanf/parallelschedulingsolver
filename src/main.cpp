@@ -15,6 +15,7 @@
 #include "parallelschedulingsolver/algorithms/lagrangian_relaxation.hpp"
 #include "parallelschedulingsolver/algorithms/column_generation.hpp"
 #include "parallelschedulingsolver/algorithms/relaxation_refinement.hpp"
+#include "parallelschedulingsolver/algorithms/tree_search_iterative_refinement.hpp"
 
 #include <boost/program_options.hpp>
 #include <boost/filesystem.hpp>
@@ -184,6 +185,21 @@ Output run(
         if (vm.count("tailing-off-minimum-improvement"))
             parameters.tailing_off_minimum_improvement = vm["tailing-off-minimum-improvement"].as<double>();
         return relaxation_refinement(instance, parameters);
+
+    } else if (algorithm == "tree-search-iterative-refinement") {
+        TreeSearchIterativeRefinementParameters parameters;
+        read_args(parameters, vm);
+        if (vm.count("column-generation"))
+            parameters.column_generation = vm["column-generation"].as<bool>();
+        if (vm.count("constraint-propagation"))
+            parameters.constraint_propagation = vm["constraint-propagation"].as<bool>();
+        if (vm.count("interval-branching"))
+            parameters.interval_branching = vm["interval-branching"].as<bool>();
+        if (vm.count("maximum-memory"))
+            parameters.maximum_memory = vm["maximum-memory"].as<double>();
+        if (vm.count("minimum-branching-depth"))
+            parameters.minimum_branching_depth = vm["minimum-branching-depth"].as<Counter>();
+        return tree_search_iterative_refinement(instance, parameters);
 
     } else if (algorithm == "local-search") {
         LocalSearchParameters parameters;

@@ -6,7 +6,7 @@
 
 #include "parallelschedulingsolver/algorithms/lagrangian_relaxation.hpp"
 #include "parallelschedulingsolver/algorithms/column_generation.hpp"
-#include "parallelschedulingsolver/algorithms/relaxation_refinement.hpp"
+#include "parallelschedulingsolver/algorithms/tree_search_iterative_refinement.hpp"
 
 
 #include <algorithm>
@@ -23,8 +23,6 @@ namespace
 
 /** Tolerance on the lower bounds, computed with floating point multipliers. */
 constexpr double TOLERANCE = 1e-6;
-
-enum class Status { Completed, MemoryOut, TimeOut };
 
 class SuccessiveSublimationDynamicProgramming
 {
@@ -128,15 +126,12 @@ private:
      * Stage 2.
      */
 
-    Status subprocedure(
-            const std::shared_ptr<Network>& network,
-            Time& tentative_upper_bound);
-
-    Status solve_branch(
-            const std::shared_ptr<Network>& network,
-            Time& tentative_upper_bound,
-            Counter forced_depth,
-            Counter depth);
+    /**
+     * Stage 2: the tree search with iterative refinement, with the
+     * multipliers of stage 1, and the Lagrangian heuristic at each step of
+     * the relaxation refinements.
+     */
+    void stage_2(double stage_1_lower_bound);
 
     /*
      * Attributes.
@@ -175,9 +170,6 @@ private:
 
     /** Stage 1: iteration of the last call to the Lagrangian heuristic. */
     Counter last_heuristic_iteration_ = -5;
-
-    /** Largest depth of the interval branching for the current tentative upper bound. */
-    Counter branching_depth_ = 0;
 
 };
 
@@ -431,161 +423,6 @@ void SuccessiveSublimationDynamicProgramming::stage_1()
 /////////////////////////////////// Stage 2 ////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
-Status SuccessiveSublimationDynamicProgramming::subprocedure(
-        const std::shared_ptr<Network>& network,
-        Time& tentative_upper_bound)
-{
-    output_.number_of_subprocedures++;
-
-    // The network has the forward and backward labels of the multipliers.
-    RelaxationRefinementParameters refinement_parameters;
-    refinement_parameters.verbosity_level = 0;
-    refinement_parameters.timer = parameters_.timer;
-    refinement_parameters.network = network;
-    refinement_parameters.multipliers = multipliers_;
-    refinement_parameters.upper_bound = upper_bound_;
-    refinement_parameters.bound_to_prove = tentative_upper_bound;
-    refinement_parameters.constraint_propagation = parameters_.constraint_propagation;
-    refinement_parameters.maximum_memory = parameters_.maximum_memory;
-    refinement_parameters.step_callback = [this](const RelaxationRefinementStep& step)
-    {
-        algorithm_formatter_.print(
-                "m " + std::to_string(step.network.modifiers().size())
-                + " states " + std::to_string(step.network.number_of_states())
-                + " lb " + std::to_string(step.lagrangian_bound)
-                + " ubt " + std::to_string(step.bound_to_prove));
-        // A path visiting each job exactly once is a feasible solution; it is
-        // always the case when all the jobs are in M.
-        if (step.feasible) {
-            update_upper_bound(build_solution(step.path), "relaxation");
-        } else if (step.improved && !step.path.empty()) {
-            lagrangian_heuristic(step.path, step.direction);
-        }
-        return upper_bound_;
-    };
-    RelaxationRefinementOutput refinement_output = relaxation_refinement(
-            instance_,
-            refinement_parameters);
-    output_.maximum_number_of_modifiers = (std::max)(
-            output_.maximum_number_of_modifiers,
-            refinement_output.number_of_modifiers);
-    output_.maximum_number_of_states = (std::max)(
-            output_.maximum_number_of_states,
-            refinement_output.maximum_number_of_states);
-    tentative_upper_bound = (std::min)(tentative_upper_bound, upper_bound_);
-    switch (refinement_output.status) {
-    case RelaxationRefinementStatus::BoundProved:
-        return Status::Completed;
-    case RelaxationRefinementStatus::MemoryOut:
-        return Status::MemoryOut;
-    default:
-        return Status::TimeOut;
-    }
-}
-
-Status SuccessiveSublimationDynamicProgramming::solve_branch(
-        const std::shared_ptr<Network>& network,
-        Time& tentative_upper_bound,
-        Counter forced_depth,
-        Counter depth)
-{
-    bool subprocedure_run = false;
-    if (depth >= forced_depth) {
-        Status status = subprocedure(network, tentative_upper_bound);
-        if (status != Status::MemoryOut || !parameters_.interval_branching)
-            return status;
-        subprocedure_run = true;
-    }
-
-    // Interval branching (Section 5.4): split the completion times of the
-    // two jobs with the most states into two intervals with balanced
-    // numbers of states.
-    JobId n = problem_->number_of_jobs;
-    std::vector<Counter> number_of_states = network->number_of_states_by_job();
-    std::vector<Time> earliest_completion_times;
-    std::vector<Time> latest_completion_times;
-    network->time_windows(earliest_completion_times, latest_completion_times);
-    std::vector<JobId> job_ids;
-    for (JobId job_id = 0; job_id < n; ++job_id)
-        if (earliest_completion_times[job_id] < latest_completion_times[job_id])
-            job_ids.push_back(job_id);
-    if (job_ids.empty()) {
-        // No job to branch on.
-        if (subprocedure_run)
-            return Status::MemoryOut;
-        return subprocedure(network, tentative_upper_bound);
-    }
-    std::stable_sort(job_ids.begin(), job_ids.end(),
-            [&number_of_states](JobId job_id_1, JobId job_id_2)
-            {
-                return number_of_states[job_id_1] > number_of_states[job_id_2];
-            });
-    if (job_ids.size() > 2)
-        job_ids.resize(2);
-
-    // Split time of each job: the numbers of states of the job completed at
-    // t <= c and at t > c are balanced.
-    std::vector<Time> splits;
-    for (JobId job_id: job_ids) {
-        std::vector<Counter> counts = network->number_of_states_by_time(job_id);
-        Counter total = number_of_states[job_id];
-        Counter sum = 0;
-        Time split = earliest_completion_times[job_id];
-        for (Time t = earliest_completion_times[job_id]; t < latest_completion_times[job_id]; ++t) {
-            sum += counts[t];
-            split = t;
-            if (2 * sum >= total)
-                break;
-        }
-        splits.push_back(split);
-    }
-
-    output_.maximum_branching_depth = (std::max)(
-            output_.maximum_branching_depth,
-            depth + 1);
-    branching_depth_ = (std::max)(branching_depth_, depth + 1);
-    algorithm_formatter_.print("branching depth " + std::to_string(depth + 1));
-
-    Counter number_of_children = (Counter)1 << job_ids.size();
-    for (Counter child = 0; child < number_of_children; ++child) {
-        if (parameters_.timer.needs_to_end())
-            return Status::TimeOut;
-        DynamicProgrammingTimeIndexedParameters dp_parameters;
-        dp_parameters.network = std::make_shared<Network>(*network);
-        dp_parameters.multipliers = multipliers_;
-        for (size_t pos = 0; pos < job_ids.size(); ++pos) {
-            JobId job_id = job_ids[pos];
-            if ((child >> pos) & 1) {
-                dp_parameters.completion_time_windows.push_back({
-                        job_id,
-                        splits[pos] + 1,
-                        latest_completion_times[job_id]});
-            } else {
-                dp_parameters.completion_time_windows.push_back({
-                        job_id,
-                        earliest_completion_times[job_id],
-                        splits[pos]});
-            }
-        }
-        dp_parameters.cutoff = tentative_upper_bound - 1 + TOLERANCE;
-        dp_parameters.reduction = true;
-        dp_parameters.constraint_propagation = parameters_.constraint_propagation;
-        dp_parameters.both_directions_labels = true;
-        DynamicProgrammingTimeIndexedOutput dp_output = dynamic_programming(dp_parameters);
-        std::shared_ptr<Network> network_child = dp_output.network;
-        if (network_child->number_of_states() == 0)
-            continue;
-        Status status = solve_branch(
-                network_child,
-                tentative_upper_bound,
-                forced_depth,
-                depth + 1);
-        if (status != Status::Completed)
-            return status;
-    }
-    return Status::Completed;
-}
-
 void SuccessiveSublimationDynamicProgramming::run()
 {
     problem_ = build_problem(instance_);
@@ -639,26 +476,58 @@ void SuccessiveSublimationDynamicProgramming::run()
     if (end())
         return;
 
-    // Stage 2: subprocedures with increasing tentative upper bounds.
+    // Stage 2.
+    stage_2(stage_1_lower_bound);
+}
+
+void SuccessiveSublimationDynamicProgramming::stage_2(double stage_1_lower_bound)
+{
     output_.stage = 2;
-    Time increment = (Time)std::llround(parameters_.tentative_upper_bound_increment * upper_bound_);
-    if (std::ceil(stage_1_lower_bound - TOLERANCE) <= 0)
-        increment = 1;
-    increment = (std::max)(increment, (Time)1);
-    Counter forced_depth = parameters_.minimum_branching_depth;
-    for (Counter k = 1; !end(); ++k) {
-        Time tentative_upper_bound = (Time)std::llround(stage_1_lower_bound + k * increment);
-        tentative_upper_bound = (std::min)(tentative_upper_bound, upper_bound_);
-        if (tentative_upper_bound <= lower_bound_)
-            continue;
-        branching_depth_ = 0;
-        Status status = solve_branch(network_, tentative_upper_bound, forced_depth, 0);
-        if (status != Status::Completed)
-            return;
+    TreeSearchIterativeRefinementParameters tree_search_parameters;
+    tree_search_parameters.verbosity_level = 0;
+    tree_search_parameters.timer = parameters_.timer;
+    // The network has the forward and backward labels of the multipliers.
+    tree_search_parameters.network = network_;
+    tree_search_parameters.multipliers = multipliers_;
+    tree_search_parameters.upper_bound = upper_bound_;
+    tree_search_parameters.lower_bound = stage_1_lower_bound;
+    tree_search_parameters.tentative_upper_bound_increment = parameters_.tentative_upper_bound_increment;
+    tree_search_parameters.interval_branching = parameters_.interval_branching;
+    tree_search_parameters.minimum_branching_depth = parameters_.minimum_branching_depth;
+    tree_search_parameters.constraint_propagation = parameters_.constraint_propagation;
+    tree_search_parameters.maximum_memory = parameters_.maximum_memory;
+    tree_search_parameters.step_callback = [this](const RelaxationRefinementStep& step)
+    {
+        algorithm_formatter_.print(
+                "m " + std::to_string(step.network.modifiers().size())
+                + " states " + std::to_string(step.network.number_of_states())
+                + " lb " + std::to_string(step.lagrangian_bound)
+                + " ubt " + std::to_string(step.bound_to_prove));
+        // A path visiting each job exactly once is a feasible solution; it is
+        // always the case when all the jobs are in M.
+        if (step.feasible) {
+            update_upper_bound(build_solution(step.path), "relaxation");
+        } else if (step.improved && !step.path.empty()) {
+            lagrangian_heuristic(step.path, step.direction);
+        }
+        return upper_bound_;
+    };
+    tree_search_parameters.lower_bound_callback = [this](Time lower_bound)
+    {
         // No solution better than the tentative upper bound.
-        update_lower_bound(tentative_upper_bound, "stage 2");
-        forced_depth = (std::max)(branching_depth_, parameters_.minimum_branching_depth);
-    }
+        update_lower_bound(lower_bound, "stage 2");
+    };
+    TreeSearchIterativeRefinementOutput tree_search_output = tree_search_iterative_refinement(
+            instance_,
+            tree_search_parameters);
+    output_.number_of_subprocedures = tree_search_output.number_of_refinements;
+    output_.maximum_number_of_modifiers = (std::max)(
+            output_.maximum_number_of_modifiers,
+            tree_search_output.maximum_number_of_modifiers);
+    output_.maximum_number_of_states = (std::max)(
+            output_.maximum_number_of_states,
+            tree_search_output.maximum_number_of_states);
+    output_.maximum_branching_depth = tree_search_output.maximum_branching_depth;
 }
 
 }

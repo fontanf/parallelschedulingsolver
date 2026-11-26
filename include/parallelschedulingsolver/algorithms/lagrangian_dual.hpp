@@ -9,9 +9,14 @@
  * state-space modifiers of the network). The algorithms search for the
  * multipliers giving the best lower bound.
  *
- * Single machine, total (weighted) tardiness or total (weighted) completion
- * time, without release dates, with or without sequence-dependent setup
- * times and rejection costs.
+ * On parallel machines (identical or unrelated), the relaxation decomposes
+ * by machine: the network of a machine is the one of its subproblem
+ * (time_indexed::build_machine_problem), in which all the jobs are optional,
+ * and the identical machines share a network.
+ *
+ * Single or parallel machines, total (weighted) tardiness or total
+ * (weighted) completion time, without release dates, with or without
+ * sequence-dependent setup times and rejection costs.
  */
 
 #pragma once
@@ -36,10 +41,13 @@ struct LagrangianDualIteration
     /** Lower bound of the relaxation for these multipliers. */
     double lagrangian_bound;
 
-    /** Jobs of the problem of the shortest path. */
-    const std::vector<JobId>& path;
+    /**
+     * Shortest path of each network (see LagrangianDualOutput::networks):
+     * jobs of the problem of the network. On a single machine, a single path.
+     */
+    const std::vector<std::vector<JobId>>& paths;
 
-    /** True if the path is a schedule. */
+    /** True if the paths are a schedule. */
     bool feasible;
 
     /** True if the best lower bound is improved. */
@@ -59,8 +67,9 @@ using LagrangianDualCallback = std::function<Time(const LagrangianDualIteration&
 struct LagrangianDualParameters: Parameters
 {
     /**
-     * Network of the relaxation. If null, the initial network of the instance
-     * (no state-space modifiers). It is reduced during the algorithm.
+     * Single machine only: network of the relaxation. If null, the initial
+     * network of the instance (no state-space modifiers). It is reduced
+     * during the algorithm.
      */
     std::shared_ptr<time_indexed::Network> network = nullptr;
 
@@ -125,8 +134,15 @@ struct LagrangianDualOutput: Output
             const Instance& instance):
         Output(instance) { }
 
-    /** Network at the end of the algorithm. */
-    std::shared_ptr<time_indexed::Network> network = nullptr;
+    /**
+     * Networks at the end of the algorithm: on a single machine, the network
+     * of the instance; on parallel machines, the network of each group of
+     * identical machines.
+     */
+    std::vector<std::shared_ptr<time_indexed::Network>> networks;
+
+    /** Machines of each network. */
+    std::vector<std::vector<MachineId>> network_machine_ids;
 
     /** Multipliers of the best lower bound. */
     std::vector<double> multipliers;
@@ -140,6 +156,15 @@ struct LagrangianDualOutput: Output
     /** Number of evaluations of the relaxation. */
     Counter number_of_iterations = 0;
 
+    /** Total number of states of the networks. */
+    Counter number_of_states() const
+    {
+        Counter number_of_states = 0;
+        for (const auto& network: networks)
+            number_of_states += network->number_of_states();
+        return number_of_states;
+    }
+
     virtual int format_width() const override { return 31; }
 
     virtual void format(std::ostream& os) const override
@@ -149,7 +174,8 @@ struct LagrangianDualOutput: Output
         os
             << std::setw(width) << std::left << "Lagrangian bound: " << lagrangian_bound << std::endl
             << std::setw(width) << std::left << "Number of iterations: " << number_of_iterations << std::endl
-            << std::setw(width) << std::left << "Number of states: " << ((network != nullptr)? network->number_of_states(): 0) << std::endl
+            << std::setw(width) << std::left << "Number of networks: " << networks.size() << std::endl
+            << std::setw(width) << std::left << "Number of states: " << number_of_states() << std::endl
             ;
     }
 
@@ -159,7 +185,7 @@ struct LagrangianDualOutput: Output
         json.merge_patch({
                 {"LagrangianBound", lagrangian_bound},
                 {"NumberOfIterations", number_of_iterations},
-                {"NumberOfStates", ((network != nullptr)? network->number_of_states(): 0)},
+                {"NumberOfStates", number_of_states()},
                 });
         return json;
     }

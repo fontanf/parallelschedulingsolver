@@ -148,6 +148,13 @@ struct Problem
     bool tardiness = true;
 
     /**
+     * True if the problem is the subproblem of a machine of a parallel
+     * machine instance (build_machine_problem): all the jobs are optional
+     * (rejection cost 0), since they may be processed on other machines.
+     */
+    bool machine_subproblem = false;
+
+    /**
      * Lower bound of the makespan; 0 if some jobs can be rejected (the
      * empty schedule is then a path of the relaxation).
      */
@@ -195,6 +202,41 @@ struct Problem
 std::shared_ptr<const Problem> build_problem(
         const Instance& instance,
         bool remove_zero_cost_jobs = true);
+
+/**
+ * Subproblem of a machine of an instance with parallel machines (or a single
+ * machine): the jobs of the instance (none removed), with their processing
+ * times and the setup times of the machine, all optional (rejection cost 0,
+ * no lower bound of the makespan), since they may be processed on other
+ * machines or rejected. The rejection costs of the instance are not part of
+ * the subproblem.
+ *
+ * Upper bound of the makespan: the one of a single machine; if all the
+ * machines are identical, (L + (m - 1) q) / m, where L is the sum over the
+ * jobs of the processing time plus the largest setup time before the job, and
+ * q the largest of these terms (the last job of a machine of some optimal
+ * schedule can't complete later than at the end of any other machine).
+ *
+ * Throw std::invalid_argument if the instance is not supported, or if it has
+ * more than 127 jobs.
+ */
+std::shared_ptr<const Problem> build_machine_problem(
+        const Instance& instance,
+        MachineId machine_id);
+
+/** True if two machines have the same processing times and setup times. */
+bool identical_machines(
+        const Instance& instance,
+        MachineId machine_id_1,
+        MachineId machine_id_2);
+
+/**
+ * Solution of an instance from the sequence of the jobs of each machine, each
+ * job as early as possible; the other jobs are rejected.
+ */
+Solution build_parallel_solution(
+        const Instance& instance,
+        const std::vector<std::vector<JobId>>& machine_sequences);
 
 /**
  * Solution of the instance from a sequence of jobs of the problem, followed

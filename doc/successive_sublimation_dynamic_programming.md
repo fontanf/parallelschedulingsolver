@@ -81,6 +81,7 @@ A job $i$ with $w_i = 0$ (or without due date) satisfying $s_{ji} + p_i + s_{ik}
 | `--maximum-number-of-refinement-steps` | -1 | Refine-or-branch rule: branching after this number of steps of a subprocedure (-1: no limit) |
 | `--tailing-off-number-of-steps` | 0 | Refine-or-branch rule: branching if a subprocedure tails off over this number of steps (0: none) |
 | `--tailing-off-minimum-improvement` | 0.01 | Refine-or-branch rule: minimum bound improvement over these steps, relative to the gap |
+| `--warm-start` | 0 | Interval branching on the last network of the subprocedure (with its modifiers) instead of the network of the node |
 
 ## Results
 
@@ -113,7 +114,7 @@ On these instances, the networks need interval branching, and the upper bounds o
 
 ## Tests
 
-`test/algorithms/successive_sublimation_dynamic_programming_test.cpp`: the optimal values (brute force) of all the single machine instances without release dates of the tests, with and without setup times, for the total (weighted) tardiness and completion time, with seven settings: default, conjugate subgradient, and weak upper bounds with a single iteration of stage 1 (so that the optimality is proved in stage 2) with and without constraint propagation, with forced interval branching, and with the refine-or-branch rule (branching after one step, or when a subprocedure tails off). Also checked once, not in the tests: 32 random instances with 9 and 10 jobs against the brute force, with the same settings.
+`test/algorithms/successive_sublimation_dynamic_programming_test.cpp`: the optimal values (brute force) of all the single machine instances without release dates of the tests, with and without setup times, for the total (weighted) tardiness and completion time, with eight settings: default, conjugate subgradient, and weak upper bounds with a single iteration of stage 1 (so that the optimality is proved in stage 2) with and without constraint propagation, with forced interval branching, with the refine-or-branch rule (branching after one step, or when a subprocedure tails off), and branching after one step with warm start. Also checked once, not in the tests: 32 random instances with 9 and 10 jobs against the brute force, with the same settings.
 
 ## Source files
 

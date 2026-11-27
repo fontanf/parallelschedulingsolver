@@ -94,14 +94,15 @@ private:
     Status refine(
             const std::shared_ptr<Network>& network,
             Time& tentative_upper_bound,
-            bool early_termination);
+            bool early_termination,
+            std::shared_ptr<Network>* refined_network = nullptr);
 
     /**
      * Node of the interval branching: relaxation refinement, then branching
      * if the memory isn't sufficient.
      */
     Status solve_branch(
-            const std::shared_ptr<Network>& network,
+            const std::shared_ptr<Network>& node_network,
             Time& tentative_upper_bound,
             Counter forced_depth,
             Counter depth);
@@ -131,7 +132,8 @@ private:
 Status TreeSearchIterativeRefinement::refine(
         const std::shared_ptr<Network>& network,
         Time& tentative_upper_bound,
-        bool early_termination)
+        bool early_termination,
+        std::shared_ptr<Network>* refined_network)
 {
     output_.number_of_refinements++;
 
@@ -162,6 +164,8 @@ Status TreeSearchIterativeRefinement::refine(
             refinement_output.maximum_number_of_states);
     update_upper_bound(refinement_output.solution, refinement_output.upper_bound);
     tentative_upper_bound = (std::min)(tentative_upper_bound, upper_bound_);
+    if (refined_network != nullptr)
+        *refined_network = refinement_output.network;
     switch (refinement_output.status) {
     case RelaxationRefinementStatus::BoundProved:
         return Status::Completed;
@@ -176,7 +180,7 @@ Status TreeSearchIterativeRefinement::refine(
 }
 
 Status TreeSearchIterativeRefinement::solve_branch(
-        const std::shared_ptr<Network>& network,
+        const std::shared_ptr<Network>& node_network,
         Time& tentative_upper_bound,
         Counter forced_depth,
         Counter depth)
@@ -186,14 +190,24 @@ Status TreeSearchIterativeRefinement::solve_branch(
     bool early_termination = parameters_.interval_branching;
     Status refinement_status = Status::Completed;
     bool refinement_run = false;
+    // Network to branch on: the network of the node, or, with warm start,
+    // the last network of its relaxation refinement.
+    std::shared_ptr<Network> network = node_network;
     if (depth >= forced_depth) {
-        refinement_status = refine(network, tentative_upper_bound, early_termination);
+        std::shared_ptr<Network> refined_network = nullptr;
+        refinement_status = refine(
+                node_network,
+                tentative_upper_bound,
+                early_termination,
+                &refined_network);
         if ((refinement_status != Status::MemoryOut
                     && refinement_status != Status::EarlyTermination)
                 || !parameters_.interval_branching) {
             return refinement_status;
         }
         refinement_run = true;
+        if (parameters_.warm_start && refined_network != nullptr)
+            network = refined_network;
     }
 
     // Interval branching (Tanaka and Araki, 2013, Section 5.4): split the

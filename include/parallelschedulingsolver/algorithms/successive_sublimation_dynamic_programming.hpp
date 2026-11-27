@@ -125,6 +125,13 @@ struct SuccessiveSublimationDynamicProgrammingParameters: Parameters
 
     double tailing_off_minimum_improvement = 0.01;
 
+    /**
+     * Interval branching on the last network of the subprocedure (with its
+     * state-space modifiers), so the subprocedures of the children start
+     * from its modifiers.
+     */
+    bool warm_start = false;
+
 
     virtual int format_width() const override { return 37; }
 
@@ -140,6 +147,7 @@ struct SuccessiveSublimationDynamicProgrammingParameters: Parameters
             << std::setw(width) << std::left << "Max. refinement steps: " << maximum_number_of_refinement_steps << std::endl
             << std::setw(width) << std::left << "Tailing-off number of steps: " << tailing_off_number_of_steps << std::endl
             << std::setw(width) << std::left << "Tailing-off min. improvement: " << tailing_off_minimum_improvement << std::endl
+            << std::setw(width) << std::left << "Warm start: " << warm_start << std::endl
             ;
     }
 
@@ -153,7 +161,8 @@ struct SuccessiveSublimationDynamicProgrammingParameters: Parameters
                 {"MaximumMemory", maximum_memory},
                 {"MaximumNumberOfRefinementSteps", maximum_number_of_refinement_steps},
                 {"TailingOffNumberOfSteps", tailing_off_number_of_steps},
-                {"TailingOffMinimumImprovement", tailing_off_minimum_improvement}});
+                {"TailingOffMinimumImprovement", tailing_off_minimum_improvement},
+                {"WarmStart", warm_start}});
         return json;
     }
 };

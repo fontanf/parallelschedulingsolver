@@ -103,6 +103,7 @@ TEST(TreeSearchIterativeRefinement, MemoryLimit)
             parameters.upper_bound = 1000000;
             parameters.maximum_memory = 1e-6;
             parameters.interval_branching = interval_branching;
+            parameters.warm_start = interval_branching;
             TreeSearchIterativeRefinementOutput output = tree_search_iterative_refinement(instance, parameters);
             EXPECT_LE(output.bound(), files.objective_value) << interval_branching << " " << files.instance_path;
             EXPECT_GE(output.solution.objective_value(), files.objective_value) << interval_branching << " " << files.instance_path;
@@ -167,14 +168,16 @@ TEST(TreeSearchIterativeRefinement, RefineOrBranch)
     // (the gap must be closed at each step), with all the multipliers equal
     // to 0 and a large upper bound: the optimal value and its proof, and the
     // branching occurs on some instances.
-    for (int setting = 0; setting < 2; ++setting) {
+    // With and without warm start of the children.
+    for (int setting = 0; setting < 4; ++setting) {
         Counter number_of_branchings = 0;
         for (const TestInstancePath& files: test_instance_paths()) {
             const Instance instance = get_instance(files);
             TreeSearchIterativeRefinementParameters parameters = default_parameters();
             parameters.multipliers.assign(build_problem(instance)->number_of_jobs, 0);
             parameters.upper_bound = 1000000;
-            if (setting == 0) {
+            parameters.warm_start = (setting >= 2);
+            if (setting % 2 == 0) {
                 parameters.maximum_number_of_refinement_steps = 1;
             } else {
                 parameters.tailing_off_number_of_steps = 1;

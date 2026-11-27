@@ -499,6 +499,7 @@ void SuccessiveSublimationDynamicProgramming::stage_2(double stage_1_lower_bound
     tree_search_parameters.maximum_number_of_refinement_steps = parameters_.maximum_number_of_refinement_steps;
     tree_search_parameters.tailing_off_number_of_steps = parameters_.tailing_off_number_of_steps;
     tree_search_parameters.tailing_off_minimum_improvement = parameters_.tailing_off_minimum_improvement;
+    tree_search_parameters.warm_start = parameters_.warm_start;
     tree_search_parameters.step_callback = [this](const RelaxationRefinementStep& step)
     {
         algorithm_formatter_.print(

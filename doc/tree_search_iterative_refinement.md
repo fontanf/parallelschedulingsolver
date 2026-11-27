@@ -16,7 +16,7 @@ Iterative deepening on the bound to prove: the relaxation refinement is applied 
 
 Interval branching (Tanaka and Araki, 2013, Section 5.4, `interval_branching`): if the memory (`maximum_memory`, in MB, 2048 by default) isn't sufficient for the relaxation refinement of a node, the completion times of the two jobs with the most states in its network are split into two intervals with balanced numbers of states, and the four restricted networks (reduced with $UB^{\text{tent}}$, with constraint propagation) are the children of the node. The largest depth reached for a tentative upper bound is used from the start for the next one; `minimum_branching_depth` forces the branching from the start (for testing).
 
-Refine-or-branch rule (with interval branching; off by default): a node is also branched on when its relaxation refinement reaches a maximum number of steps (`maximum_number_of_refinement_steps`, `--maximum-number-of-refinement-steps`) or tails off (`tailing_off_number_of_steps` $k$ and `tailing_off_minimum_improvement` $\epsilon$: the best lower bound improved by less than $\epsilon$ times the gap with the bound to prove over the last $k$ steps). The children restart the refinement from their restricted network. If no job can be branched on (all the completion times are fixed), the relaxation refinement of the node is applied again without these criteria, so the algorithm stays exact.
+Refine-or-branch rule (with interval branching; off by default): a node is also branched on when its relaxation refinement reaches a maximum number of steps (`maximum_number_of_refinement_steps`, `--maximum-number-of-refinement-steps`) or tails off (`tailing_off_number_of_steps` $k$ and `tailing_off_minimum_improvement` $\epsilon$: the best lower bound improved by less than $\epsilon$ times the gap with the bound to prove over the last $k$ steps). By default, the children restart the refinement from their restricted network. With warm start (`warm_start`, `--warm-start 1`; off by default), a node whose relaxation refinement stops (memory, maximum number of steps or tailing-off) is branched on the last network of its refinement, with its state-space modifiers: the jobs to branch on and the split times are chosen on this network, and the refinements of the children start from its modifiers. If no job can be branched on (all the completion times are fixed), the relaxation refinement of the node is applied again without these criteria, so the algorithm stays exact.
 
 The callback of the steps of the relaxation refinements (`step_callback`) returns an upper bound, e.g. from a Lagrangian heuristic (in SSDP).
 
@@ -26,9 +26,9 @@ Output: the solution and the bound, the multipliers, the upper and lower bounds,
 
 `test/algorithms/tree_search_iterative_refinement_test.cpp`, on the single machine test instances of SSDP (optimal values by brute force):
 * the optimal value and its proof: default parameters, Lagrangian relaxation, without constraint propagation, with forced interval branching, and with all the multipliers equal to 0 and a large upper bound;
-* a tiny memory, with and without interval branching: valid bounds;
+* a tiny memory, without interval branching, and with interval branching and warm start: valid bounds;
 * the callbacks: non-decreasing lower bounds, at most the optimal value;
-* the refine-or-branch rule, branching after one refinement step or when the refinement tails off (the gap must be closed at each step), with all the multipliers equal to 0 and a large upper bound: the optimal value and its proof, and the branching occurs on some instances;
+* the refine-or-branch rule, branching after one refinement step or when the refinement tails off (the gap must be closed at each step), with all the multipliers equal to 0 and a large upper bound: the optimal value and its proof, and the branching occurs on some instances, with and without warm start;
 * with rejection costs for the jobs of even id (instances with at most 6 jobs): the optimal value (brute force);
 * unsupported instances.
 

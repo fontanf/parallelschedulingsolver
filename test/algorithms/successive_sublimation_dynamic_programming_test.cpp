@@ -138,6 +138,13 @@ INSTANTIATE_TEST_SUITE_P(
                         parameters.tailing_off_minimum_improvement = 1;
                         return ssdp_test(instance, parameters);
                     },
+                    [](const Instance& instance)
+                    {
+                        SuccessiveSublimationDynamicProgrammingParameters parameters = stage_2_parameters();
+                        parameters.maximum_number_of_refinement_steps = 1;
+                        parameters.warm_start = true;
+                        return ssdp_test(instance, parameters);
+                    },
                 },
                 {
                     get_test_instance_paths(get_path({"test", "algorithms", "successive_sublimation_dynamic_programming_test.txt"})),

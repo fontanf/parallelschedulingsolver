@@ -87,6 +87,14 @@ struct TreeSearchIterativeRefinementParameters: Parameters
 
     double tailing_off_minimum_improvement = 0.01;
 
+    /**
+     * Warm start of the children: a node is branched on the last network of
+     * its relaxation refinement (with its state-space modifiers) instead of
+     * its own network, so the refinements of its children start from its
+     * modifiers.
+     */
+    bool warm_start = false;
+
     /** Constraint propagation after each network generation. */
     bool constraint_propagation = true;
 
@@ -120,6 +128,7 @@ struct TreeSearchIterativeRefinementParameters: Parameters
             << std::setw(width) << std::left << "Max. refinement steps: " << maximum_number_of_refinement_steps << std::endl
             << std::setw(width) << std::left << "Tailing-off number of steps: " << tailing_off_number_of_steps << std::endl
             << std::setw(width) << std::left << "Tailing-off min. improvement: " << tailing_off_minimum_improvement << std::endl
+            << std::setw(width) << std::left << "Warm start: " << warm_start << std::endl
             << std::setw(width) << std::left << "Constraint propagation: " << constraint_propagation << std::endl
             << std::setw(width) << std::left << "Maximum memory (MB): " << maximum_memory << std::endl
             ;
@@ -139,6 +148,7 @@ struct TreeSearchIterativeRefinementParameters: Parameters
                 {"MaximumNumberOfRefinementSteps", maximum_number_of_refinement_steps},
                 {"TailingOffNumberOfSteps", tailing_off_number_of_steps},
                 {"TailingOffMinimumImprovement", tailing_off_minimum_improvement},
+                {"WarmStart", warm_start},
                 {"ConstraintPropagation", constraint_propagation},
                 {"MaximumMemory", maximum_memory}});
         return json;

@@ -142,6 +142,8 @@ Output run(
             parameters.tailing_off_number_of_steps = vm["tailing-off-number-of-steps"].as<Counter>();
         if (vm.count("tailing-off-minimum-improvement"))
             parameters.tailing_off_minimum_improvement = vm["tailing-off-minimum-improvement"].as<double>();
+        if (vm.count("warm-start"))
+            parameters.warm_start = vm["warm-start"].as<bool>();
         return successive_sublimation_dynamic_programming(instance, parameters);
 
     } else if (algorithm == "dynamic-programming-time-indexed") {
@@ -211,6 +213,8 @@ Output run(
             parameters.tailing_off_number_of_steps = vm["tailing-off-number-of-steps"].as<Counter>();
         if (vm.count("tailing-off-minimum-improvement"))
             parameters.tailing_off_minimum_improvement = vm["tailing-off-minimum-improvement"].as<double>();
+        if (vm.count("warm-start"))
+            parameters.warm_start = vm["warm-start"].as<bool>();
         return tree_search_iterative_refinement(instance, parameters);
 
     } else if (algorithm == "local-search") {
@@ -286,6 +290,7 @@ int main(int argc, char *argv[])
         ("maximum-number-of-iterations,", po::value<Counter>(), "Lagrangian relaxation, column generation: maximum number of evaluations of the relaxation")
         ("bound-to-prove,", po::value<Time>(), "relaxation refinement: bound to prove (default: the upper bound)")
         ("maximum-number-of-steps,", po::value<Counter>(), "relaxation refinement: maximum number of refinement steps")
+        ("warm-start,", po::value<bool>(), "tree search with iterative refinement, successive sublimation dynamic programming: branching on the last network of the relaxation refinement")
         ("maximum-number-of-refinement-steps,", po::value<Counter>(), "tree search with iterative refinement, successive sublimation dynamic programming: branching after this number of refinement steps (-1: no limit)")
         ("tailing-off-number-of-steps,", po::value<Counter>(), "relaxation refinement, tree search with iterative refinement, successive sublimation dynamic programming: number of steps of the tailing-off rule (0: none)")
         ("tailing-off-minimum-improvement,", po::value<double>(), "relaxation refinement, tree search with iterative refinement, successive sublimation dynamic programming: minimum bound improvement of the tailing-off rule, relative to the gap")

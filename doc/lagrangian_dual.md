@@ -32,7 +32,7 @@ The Lagrangian dual is solved as the linear relaxation of the master problem (Ta
 
 $$\min \sum_g \sum_{P \in \mathcal{P}_g} c(P) x_P + \sum_{i: e_i \ge 0} e_i y_i \quad \text{s.t.} \quad \sum_g \sum_{P \in \mathcal{P}_g} V_i(P) x_P + y_i = 1 \ \ \forall i, \quad \sum_{P \in \mathcal{P}_g} x_P = m_g \ \ \forall g$$
 
-over the paths $\mathcal{P}_g$ of the network of each group $g$ of identical machines ($m_g$ machines; a single group of one machine on a single machine), with [columngenerationsolver](https://github.com/fontanf/columngenerationsolver) (HiGHS or CLP), where $y_i \in [0, 1]$ is the rejection of job $i$ (a static column). The dynamic programming is the pricing problem, exact: the overcost of the pricing is the sum over the groups of $m_g$ times the reduced cost of the path of the group. On parallel machines, the paths of negative reduced cost are added. The dual is stabilized by Wentges smoothing ($\alpha = 0.5$) with the duals of the best Lagrangian bound as stability center. The first columns are a schedule of cost the upper bound (all the jobs, in the first group), on parallel machines the empty path of each group, and the solution of the relaxation for the initial multipliers.
+over the paths $\mathcal{P}_g$ of the network of each group $g$ of identical machines ($m_g$ machines; a single group of one machine on a single machine), with [columngenerationsolver](https://github.com/fontanf/columngenerationsolver) (HiGHS or CLP), where $y_i \in [0, 1]$ is the rejection of job $i$ (a static column). The dynamic programming is the pricing problem, exact: the overcost of the pricing is the sum over the groups of $m_g$ times the reduced cost of the path of the group. On parallel machines, the paths of negative reduced cost are added. The dual is stabilized by Wentges smoothing ($\alpha = 0.5$) with the duals of the best Lagrangian bound as stability center. The first columns are a schedule of cost the upper bound (all the jobs once, and $m_g$ in the convexity row of each group: the schedule uses all the machines, so the combinations of the columns are a relaxation of the schedules), on parallel machines the empty path of each group, and the solution of the relaxation for the initial multipliers.
 
 ## Common behavior
 
@@ -61,10 +61,10 @@ On parallel machines, `test/algorithms/lagrangian_dual_parallel_test.txt`: ident
 * valid bounds and feasible solutions, with the default parameters, and with a large upper bound without reduction;
 * one network for each group of identical machines, and one path for each network;
 * with rejection costs for the jobs of even id (instances with at most 6 jobs): valid bounds;
-* the column generation bound is at least the Lagrangian relaxation bound (without reduction);
+* the column generation bound is at least the Lagrangian relaxation bound (without reduction), with a large upper bound and with the upper bound of the initial solution (unless the bound proves the optimality of the upper bound);
 * the horizon of the subproblem of a machine, identical and unrelated.
 
-Mean bound over optimal value on these instances, with the default parameters: column generation 0.85 to 0.98 depending on the family; Lagrangian relaxation 0.94 to 1.00 on unrelated machines and 0.59 to 0.87 on identical machines (with identical machines, all the machines of the relaxation process the same path, and the subgradient steps oscillate).
+Mean bound over optimal value on these instances, with the default parameters: column generation 0.995 to 1.00 depending on the family; Lagrangian relaxation 0.94 to 1.00 on unrelated machines and 0.59 to 0.87 on identical machines (with identical machines, all the machines of the relaxation process the same path, and the subgradient steps oscillate).
 
 ## Source files
 

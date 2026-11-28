@@ -158,7 +158,7 @@ const LagrangianDualOutput parallelschedulingsolver::column_generation(
         row.lower_bound = lagrangian_dual.multiplicity(group_id);
         row.upper_bound = lagrangian_dual.multiplicity(group_id);
         row.coefficient_lower_bound = 0;
-        row.coefficient_upper_bound = 1;
+        row.coefficient_upper_bound = lagrangian_dual.multiplicity(group_id);
         model.rows.push_back(row);
     }
     // Rejection of the jobs with a rejection cost.
@@ -190,16 +190,17 @@ const LagrangianDualOutput parallelschedulingsolver::column_generation(
     column_generation_parameters.wentges_smoothing_best_bound_center = true;
 
     // Initial columns: a schedule of cost the upper bound (all the jobs
-    // once, on a machine of the first group; the order of the jobs doesn't
-    // matter for the master problem), the empty path of each group on
-    // parallel machines (the other machines), and the solution of the
-    // relaxation for the initial multipliers.
+    // once, on all the machines: a convex combination of it and of the other
+    // columns is a relaxation of the schedules), the empty path of each group
+    // on parallel machines, and the solution of the relaxation for the
+    // initial multipliers.
     {
-        std::vector<JobId> path(n);
-        std::iota(path.begin(), path.end(), 0);
-        auto column = std::make_shared<columngenerationsolver::Column>(
-                *pricing_solver_ref.column(0, path));
+        auto column = std::make_shared<columngenerationsolver::Column>();
         column->objective_coefficient = lagrangian_dual.upper_bound();
+        for (JobId job_id = 0; job_id < n; ++job_id)
+            column->elements.push_back({job_id, 1});
+        for (Counter group_id = 0; group_id < number_of_groups; ++group_id)
+            column->elements.push_back({n + group_id, (double)lagrangian_dual.multiplicity(group_id)});
         column_generation_parameters.initial_columns.push_back(column);
     }
     if (!lagrangian_dual.single_machine()) {

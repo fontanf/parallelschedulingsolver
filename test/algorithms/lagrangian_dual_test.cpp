@@ -6,6 +6,8 @@
 
 #include "parallelschedulingsolver/instance_builder.hpp"
 
+#include <cmath>
+
 using namespace parallelschedulingsolver;
 using namespace parallelschedulingsolver::time_indexed;
 
@@ -326,15 +328,25 @@ TEST(LagrangianDual, ParallelMachinesRejectionCosts)
 TEST(LagrangianDual, ParallelMachinesColumnGenerationConvergence)
 {
     // Without reduction, the column generation bound is at least the
-    // Lagrangian relaxation bound.
+    // Lagrangian relaxation bound, with a large upper bound and with the
+    // upper bound of the initial solution (the column of the initial
+    // schedule then has a small cost: it must use all the machines).
     for (const TestInstancePath& files: parallel_test_instance_paths()) {
         const Instance instance = get_instance(files);
-        LagrangianDualParameters parameters = default_parameters();
-        parameters.upper_bound = 1000000;
-        parameters.reduction = false;
-        LagrangianDualOutput output_lr = algorithms()[0].second(instance, parameters);
-        LagrangianDualOutput output_cg = algorithms()[1].second(instance, parameters);
-        EXPECT_GE(output_cg.lagrangian_bound, output_lr.lagrangian_bound - 1e-6) << files.instance_path;
+        for (Time upper_bound: {(Time)1000000, (Time)-1}) {
+            LagrangianDualParameters parameters = default_parameters();
+            parameters.upper_bound = upper_bound;
+            parameters.reduction = false;
+            LagrangianDualOutput output_lr = algorithms()[0].second(instance, parameters);
+            LagrangianDualOutput output_cg = algorithms()[1].second(instance, parameters);
+            // The algorithms stop when the bound proves the optimality of
+            // the upper bound.
+            if (std::ceil(output_lr.lagrangian_bound - 1e-6) >= output_lr.upper_bound
+                    || std::ceil(output_cg.lagrangian_bound - 1e-6) >= output_cg.upper_bound) {
+                continue;
+            }
+            EXPECT_GE(output_cg.lagrangian_bound, output_lr.lagrangian_bound - 1e-6) << upper_bound << " " << files.instance_path;
+        }
     }
 }
 
